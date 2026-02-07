@@ -823,6 +823,38 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
         }
     }
 
+    auto *settings = CoreSettings::getInstance();
+    const QString versionsFilePath = settings->versionsFilePath();
+    if (!versionsFilePath.isEmpty()) {
+        QVector<Api::McApi::MCVersion> versions = settings->getLocalVersions();
+        bool replaced = false;
+        for (auto &entry : versions) {
+            if (entry.id == version.id) {
+                entry = version;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            versions.append(version);
+        }
+
+        settings->setLocalVersions(versions);
+        settings->versionManager()->setLocalVersions(versions);
+
+        const QString dirPath = QFileInfo(versionsFilePath).absolutePath();
+        if (!QDir().mkpath(dirPath)) {
+            m_lastError = QStringLiteral("Failed to create dir: %1").arg(dirPath);
+            return false;
+        }
+
+        QString error;
+        if (!Api::McApi::saveLocalVersions(versionsFilePath, versions, &error)) {
+            m_lastError = error;
+            return false;
+        }
+    }
+
     emit installPhaseChanged(QStringLiteral("done"));
     return true;
 }

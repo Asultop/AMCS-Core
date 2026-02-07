@@ -1,10 +1,13 @@
 #include "McAccountManager.h"
 
+#include "../CoreSettings.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <memory>
 
 namespace AMCS::Core::Auth
 {
@@ -27,8 +30,19 @@ McAccount *McAccountManager::createAccount()
 
 McAccount *McAccountManager::createOfflineAccount(const QString &name)
 {
+    auto *existing = findAccountByName(name);
+    if (existing) {
+        std::unique_ptr<McAccount> temp(McAccount::createOffline(name));
+        existing->fromJson(temp->toJson());
+        QString error;
+        upsertAccount(*existing, &error);
+        return existing;
+    }
+
     auto *account = McAccount::createOffline(name, this);
     m_accounts.append(account);
+    QString error;
+    upsertAccount(*account, &error);
     return account;
 }
 
@@ -50,6 +64,68 @@ McAccount *McAccountManager::findAccountByName(const QString &accountName) const
     }
 
     return nullptr;
+}
+
+McAccount *McAccountManager::findAccountByUuid(const QString &uuid) const
+{
+    if (uuid.isEmpty()) {
+        return nullptr;
+    }
+
+    for (auto *account : m_accounts) {
+        if (account && account->uuid() == uuid) {
+            return account;
+        }
+    }
+
+    return nullptr;
+}
+
+bool McAccountManager::upsertAccount(const McAccount &account, QString *errorString)
+{
+    const QString filePath = CoreSettings::getInstance()->accountsFilePath();
+    if (filePath.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Accounts file path is empty");
+        }
+        return false;
+    }
+
+    McAccount *target = nullptr;
+    if (!account.uuid().isEmpty()) {
+        target = findAccountByUuid(account.uuid());
+    }
+    if (!target && !account.accountName().isEmpty()) {
+        target = findAccountByName(account.accountName());
+    }
+    if (!target) {
+        target = new McAccount(this);
+        m_accounts.append(target);
+    }
+
+    if (!target->fromJson(account.toJson())) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to update account from json");
+        }
+        return false;
+    }
+
+    const QString dirPath = QFileInfo(filePath).absolutePath();
+    if (!QDir().mkpath(dirPath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to create dir: %1").arg(dirPath);
+        }
+        return false;
+    }
+
+    if (!save(filePath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to save accounts: %1").arg(filePath);
+        }
+        return false;
+    }
+
+    return true;
 }
 
 bool McAccountManager::refreshAll()

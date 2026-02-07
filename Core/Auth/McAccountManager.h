@@ -20,6 +20,9 @@ public:
     McAccount *createOfflineAccount(const QString &name);
     QVector<McAccount *> accounts() const;
     McAccount *findAccountByName(const QString &accountName) const;
+    McAccount *findAccountByUuid(const QString &uuid) const;
+
+    bool upsertAccount(const McAccount &account, QString *errorString = nullptr);
 
     bool refreshAll();
     bool refreshAccount(McAccount *account);

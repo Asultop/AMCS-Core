@@ -1,5 +1,7 @@
 #include "McAccount.h"
 
+#include "../CoreSettings.h"
+
 #include <QEventLoop>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -86,6 +88,15 @@ bool McAccount::login(int maxPollSeconds, int pollIntervalSeconds)
     if (m_tokens.mcAccessToken.isEmpty()) {
         m_lastError = QStringLiteral("Minecraft access token missing");
         return false;
+    }
+
+    auto *manager = CoreSettings::getInstance()->accountManager();
+    if (manager) {
+        QString error;
+        if (!manager->upsertAccount(*this, &error)) {
+            m_lastError = error;
+            return false;
+        }
     }
 
     return true;

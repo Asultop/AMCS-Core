@@ -16,22 +16,26 @@ bool CoreSettings::coreInit(const QString &baseDir)
 
     const QString normalizedBaseDir = QDir(baseDir).absolutePath();
     setBaseDir(normalizedBaseDir);
-    setAccountsDir(normalizedBaseDir);
-    setVersionsDir(normalizedBaseDir);
+    const QString dataDir = QDir(normalizedBaseDir).absoluteFilePath(QStringLiteral("AMCS/Data"));
+    setAccountsDir(dataDir);
+    setVersionsDir(dataDir);
+    setAccountsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("accounts.json")));
+    setVersionsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("versions.json")));
 
     const QString accountsPath = accountsFilePath();
     const QString versionsPath = versionsFilePath();
 
+    auto *accounts = Manager::AccountManager::getInstance();
     if (QFileInfo::exists(accountsPath)) {
-        QString error;
-        if (!m_accountManager.loadFromDir(getAccountsDir(), &error)) {
-            setLastError(error);
+        if (!accounts->load(accountsPath)) {
+            setLastError(QStringLiteral("Failed to load accounts: %1").arg(accountsPath));
             return false;
         }
     } else {
-        m_accountManager.clear();
+        accounts->clear();
     }
 
+    auto *versionsManager = Manager::VersionManager::getInstance();
     if (QFileInfo::exists(versionsPath)) {
         QString error;
         QVector<Api::McApi::MCVersion> versions;
@@ -39,39 +43,66 @@ bool CoreSettings::coreInit(const QString &baseDir)
             setLastError(error);
             return false;
         }
+        versionsManager->setLocalVersions(versions);
         setLocalVersions(versions);
     } else {
+        versionsManager->setLocalVersions(QVector<Api::McApi::MCVersion>());
         setLocalVersions(QVector<Api::McApi::MCVersion>());
     }
 
     return true;
 }
 
+bool CoreSettings::coreInit()
+{
+    return coreInit(getBaseDir());
+}
+
 QString CoreSettings::accountsFilePath() const
 {
-    if (getAccountsDir().isEmpty()) {
+    if (getAccountsFilePath().isEmpty()) {
         return QString();
     }
 
-    return QDir(getAccountsDir()).absoluteFilePath(Auth::McAccountManager::defaultAccountsFileName());
+    return getAccountsFilePath();
 }
 
 QString CoreSettings::versionsFilePath() const
 {
-    if (getVersionsDir().isEmpty()) {
+    if (getVersionsFilePath().isEmpty()) {
         return QString();
     }
 
-    return QDir(getVersionsDir()).absoluteFilePath(Api::McApi::defaultVersionsFileName());
+    return getVersionsFilePath();
 }
 
 Auth::McAccountManager *CoreSettings::accountManager()
 {
-    return &m_accountManager;
+    return Manager::AccountManager::getInstance();
 }
 
 const Auth::McAccountManager *CoreSettings::accountManager() const
 {
-    return &m_accountManager;
+    return Manager::AccountManager::getInstance();
+}
+
+Manager::JavaManager *CoreSettings::javaManager()
+{
+    return Manager::JavaManager::getInstance();
+}
+
+const Manager::JavaManager *CoreSettings::javaManager() const
+{
+    return Manager::JavaManager::getInstance();
+}
+
+Manager::VersionManager *CoreSettings::versionManager()
+{
+    return Manager::VersionManager::getInstance();
+}
+
+const Manager::VersionManager *CoreSettings::versionManager() const
+{
+    return Manager::VersionManager::getInstance();
 }
 } // namespace AMCS::Core

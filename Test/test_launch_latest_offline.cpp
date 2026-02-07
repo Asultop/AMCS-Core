@@ -24,6 +24,12 @@ int main(int argc, char *argv[])
 
     const QString baseDir = QDir::current().absoluteFilePath(QStringLiteral("AMCS/.minecraft"));
 
+    auto *settings = CoreSettings::getInstance();
+    if (!settings->coreInit(QDir::currentPath())) {
+        qCritical().noquote() << "Core init failed:" << settings->getLastError();
+        return 1;
+    }
+
     McApi api(nullptr);
     QVector<McApi::MCVersion> latest;
     if (!api.getLatestMCVersion(latest, McApi::VersionSource::Official)) {

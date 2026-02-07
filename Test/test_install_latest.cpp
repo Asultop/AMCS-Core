@@ -7,6 +7,7 @@
 using AMCS::Core::Api::McApi;
 using AMCS::Core::Launcher::InstallProgress;
 using AMCS::Core::Launcher::LauncherCore;
+using AMCS::Core::CoreSettings;
 
 int main(int argc, char *argv[])
 {
@@ -17,6 +18,12 @@ int main(int argc, char *argv[])
         dest = QString::fromLocal8Bit(argv[1]);
     } else {
         dest = QDir::current().absoluteFilePath(QStringLiteral("minecraft"));
+    }
+
+    auto *settings = CoreSettings::getInstance();
+    if (!settings->coreInit(QDir::currentPath())) {
+        qCritical().noquote() << "Core init failed:" << settings->getLastError();
+        return 1;
     }
 
     McApi api(nullptr);

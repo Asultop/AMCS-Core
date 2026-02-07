@@ -13,10 +13,11 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    const QString baseDir = QDir::current().absoluteFilePath(QStringLiteral("AMCS/init_test"));
+    const QString baseDir = QDir::currentPath();
+    const QString dataDir = QDir(baseDir).absoluteFilePath(QStringLiteral("AMCS/Data"));
 
-    if (!QDir().mkpath(baseDir)) {
-        qCritical().noquote() << "Failed to create test dir" << baseDir;
+    if (!QDir().mkpath(dataDir)) {
+        qCritical().noquote() << "Failed to create test dir" << dataDir;
         return 1;
     }
 
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
     account->setUuid(QStringLiteral("1234-5678-test"));
 
     QString error;
-    if (!accountsWriter.saveToDir(baseDir, &error)) {
+    if (!accountsWriter.saveToDir(dataDir, &error)) {
         qCritical().noquote() << "Save accounts failed:" << error;
         return 1;
     }
@@ -39,7 +40,7 @@ int main(int argc, char *argv[])
     version.releaseTime = version.time;
     versions.append(version);
 
-    const QString versionsPath = QDir(baseDir).absoluteFilePath(
+    const QString versionsPath = QDir(dataDir).absoluteFilePath(
         McApi::defaultVersionsFileName());
     if (!McApi::saveLocalVersions(versionsPath, versions, &error)) {
         qCritical().noquote() << "Save versions failed:" << error;

@@ -9,6 +9,9 @@
 
 #include "Api/McApi.h"
 #include "Auth/McAccountManager.h"
+#include "Manager/AccountManager.h"
+#include "Manager/JavaManager.h"
+#include "Manager/VersionManager.h"
 
 namespace AMCS::Core
 {
@@ -29,12 +32,19 @@ public:
 
 public:
     bool coreInit(const QString &baseDir);
+    bool coreInit();
 
     QString accountsFilePath() const;
     QString versionsFilePath() const;
 
     Auth::McAccountManager *accountManager();
     const Auth::McAccountManager *accountManager() const;
+
+    Manager::JavaManager *javaManager();
+    const Manager::JavaManager *javaManager() const;
+
+    Manager::VersionManager *versionManager();
+    const Manager::VersionManager *versionManager() const;
 
 private:
     CoreSettings()
@@ -46,10 +56,10 @@ private:
     Q_PROPERTY_CREATE(QString, BaseDir)
     Q_PROPERTY_CREATE(QString, AccountsDir)
     Q_PROPERTY_CREATE(QString, VersionsDir)
+    Q_PROPERTY_CREATE(QString, AccountsFilePath)
+    Q_PROPERTY_CREATE(QString, VersionsFilePath)
     Q_PROPERTY_CREATE(QVector<Api::McApi::MCVersion>, LocalVersions)
     Q_PROPERTY_CREATE(QString, LastError)
 
-private:
-    Auth::McAccountManager m_accountManager;
 };
 } // namespace AMCS::Core
