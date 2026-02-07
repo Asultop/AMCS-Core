@@ -42,11 +42,6 @@ if (TARGET Qt${QT_VERSION_MAJOR}::CorePrivate)
   target_link_libraries(amcs_core Qt${QT_VERSION_MAJOR}::CorePrivate)
 endif()
 
-add_executable(installer
-  Installer/main.cpp
-)
-
-target_link_libraries(installer amcs_core)
 
 if (AMCS_BUILD_TESTS)
   add_subdirectory(Test)
