@@ -1,6 +1,8 @@
 #include "McAccountManager.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 
@@ -9,6 +11,11 @@ namespace AMCS::Core::Auth
 McAccountManager::McAccountManager(QObject *parent)
     : QObject(parent)
 {
+}
+
+QString McAccountManager::defaultAccountsFileName()
+{
+    return QStringLiteral("accounts.json");
 }
 
 McAccount *McAccountManager::createAccount()
@@ -65,6 +72,12 @@ bool McAccountManager::refreshAccount(McAccount *account)
     return account->refresh();
 }
 
+void McAccountManager::clear()
+{
+    qDeleteAll(m_accounts);
+    m_accounts.clear();
+}
+
 bool McAccountManager::save(const QString &filename) const
 {
     QJsonArray array;
@@ -109,8 +122,7 @@ bool McAccountManager::load(const QString &filename)
     const QJsonObject root = doc.object();
     const QJsonArray array = root.value(QStringLiteral("accounts")).toArray();
 
-    qDeleteAll(m_accounts);
-    m_accounts.clear();
+    clear();
 
     for (const auto &val : array) {
         const QJsonObject obj = val.toObject();
@@ -120,6 +132,61 @@ bool McAccountManager::load(const QString &filename)
         } else {
             delete account;
         }
+    }
+
+    return true;
+}
+
+bool McAccountManager::saveToDir(const QString &baseDir, QString *errorString) const
+{
+    if (baseDir.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Base directory is empty");
+        }
+        return false;
+    }
+
+    const QString dirPath = QDir(baseDir).absolutePath();
+    if (!QDir().mkpath(dirPath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to create dir: %1").arg(dirPath);
+        }
+        return false;
+    }
+
+    const QString filePath = QDir(dirPath).absoluteFilePath(defaultAccountsFileName());
+    if (!save(filePath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to save accounts: %1").arg(filePath);
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool McAccountManager::loadFromDir(const QString &baseDir, QString *errorString)
+{
+    if (baseDir.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Base directory is empty");
+        }
+        return false;
+    }
+
+    const QString filePath = QDir(baseDir).absoluteFilePath(defaultAccountsFileName());
+    if (!QFileInfo::exists(filePath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Accounts file not found: %1").arg(filePath);
+        }
+        return false;
+    }
+
+    if (!load(filePath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to load accounts: %1").arg(filePath);
+        }
+        return false;
     }
 
     return true;

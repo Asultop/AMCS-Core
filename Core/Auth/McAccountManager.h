@@ -14,6 +14,8 @@ class McAccountManager : public QObject
 public:
     explicit McAccountManager(QObject *parent = nullptr);
 
+    static QString defaultAccountsFileName();
+
     McAccount *createAccount();
     McAccount *createOfflineAccount(const QString &name);
     QVector<McAccount *> accounts() const;
@@ -22,8 +24,12 @@ public:
     bool refreshAll();
     bool refreshAccount(McAccount *account);
 
+    void clear();
     bool save(const QString &filename) const;
     bool load(const QString &filename);
+
+    bool saveToDir(const QString &baseDir, QString *errorString = nullptr) const;
+    bool loadFromDir(const QString &baseDir, QString *errorString = nullptr);
 
 private:
     QVector<McAccount *> m_accounts;

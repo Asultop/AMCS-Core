@@ -3,11 +3,14 @@
 
 #include "../Core/AMCSCore.h"
 
+using AMCS::Core::Auth::McAccount;
+using AMCS::Core::Auth::McAccountManager;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    AMCS::Core::Auth::McAccountManager manager;
+    McAccountManager manager;
     auto *offline = manager.createOfflineAccount(QStringLiteral("TestUser"));
     if (!offline) {
         qCritical().noquote() << "Failed to create offline account";
@@ -15,7 +18,7 @@ int main(int argc, char *argv[])
     }
 
     QJsonObject data = offline->toJson();
-    AMCS::Core::Auth::McAccount rehydrated;
+    McAccount rehydrated;
     if (!rehydrated.fromJson(data)) {
         qCritical().noquote() << "Failed to load account json";
         return 1;

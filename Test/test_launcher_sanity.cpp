@@ -4,12 +4,15 @@
 
 #include "../Core/AMCSCore.h"
 
+using AMCS::Core::Api::McApi;
+using AMCS::Core::Launcher::LauncherCore;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    AMCS::Core::Launcher::LauncherCore launcher;
-    AMCS::Core::Api::McApi::MCVersion version;
+    LauncherCore launcher;
+    McApi::MCVersion version;
     version.id = QStringLiteral("1.0.0");
 
     bool installed = launcher.isVersionInstalled(version, QDir::currentPath());

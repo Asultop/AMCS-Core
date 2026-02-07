@@ -16,6 +16,8 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Concurrent)
 
 add_library(amcs_core
   Core/AMCSCore.h
+  Core/CoreSettings.h
+  Core/CoreSettings.cpp
   Core/Auth/McAccount.h
   Core/Auth/McAccount.cpp
   Core/Auth/McAccountManager.h

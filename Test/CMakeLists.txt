@@ -14,6 +14,12 @@ add_executable(amcs_test_core
 
 target_link_libraries(amcs_test_core amcs_core Qt${QT_VERSION_MAJOR}::Core)
 
+add_executable(amcs_test_core_init
+  test_core_init.cpp
+)
+
+target_link_libraries(amcs_test_core_init amcs_core Qt${QT_VERSION_MAJOR}::Core)
+
 add_executable(amcs_test_launcher
   test_launcher_sanity.cpp
 )

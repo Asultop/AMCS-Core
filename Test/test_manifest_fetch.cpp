@@ -3,13 +3,15 @@
 
 #include "../Core/AMCSCore.h"
 
+using AMCS::Core::Api::McApi;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    AMCS::Core::Api::McApi api(nullptr);
-    QVector<AMCS::Core::Api::McApi::MCVersion> versions;
-    if (!api.fetchMCVersion(versions, AMCS::Core::Api::McApi::VersionSource::Official)) {
+    McApi api(nullptr);
+    QVector<McApi::MCVersion> versions;
+    if (!api.fetchMCVersion(versions, McApi::VersionSource::Official)) {
         qCritical().noquote() << "Fetch version list failed:" << api.lastError();
         return 1;
     }

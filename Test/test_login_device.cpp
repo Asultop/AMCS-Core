@@ -3,12 +3,15 @@
 
 #include "../Core/AMCSCore.h"
 
+using AMCS::Core::Api::McApi;
+using AMCS::Core::Auth::McAccount;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    AMCS::Core::Auth::McAccount account;
-    QObject::connect(&account, &AMCS::Core::Auth::McAccount::deviceCodeReceived,
+    McAccount account;
+    QObject::connect(&account, &McAccount::deviceCodeReceived,
                      [](const QString &message, const QString &verificationUri, const QString &userCode) {
                          qInfo().noquote() << message;
                          qInfo().noquote() << "Open:" << verificationUri << "Code:" << userCode;
@@ -19,7 +22,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    AMCS::Core::Api::McApi api(&account);
+    McApi api(&account);
     if (!api.fetchProfile()) {
         qCritical().noquote() << "Fetch profile failed:" << api.lastError();
         return 1;

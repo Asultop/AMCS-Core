@@ -1,5 +1,7 @@
 #include "LauncherCore.h"
 
+#include "../CoreSettings.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -862,7 +864,17 @@ bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
         return false;
     }
 
-    const QString gameDir = options.gameDir.isEmpty() ? base : options.gameDir;
+    const auto effectiveLaunchMode = options.launchMode.value_or(
+        AMCS::Core::CoreSettings::getInstance()->getLaunchMode());
+
+    QString gameDir;
+    if (!options.gameDir.isEmpty()) {
+        gameDir = options.gameDir;
+    } else if (effectiveLaunchMode == AMCS::Core::CoreSettings::LaunchMode::Isolated) {
+        gameDir = versionDir;
+    } else {
+        gameDir = base;
+    }
     const QString nativesDir = QDir(versionDir).absoluteFilePath(versionId + QStringLiteral("-natives"));
 
     QStringList classpathEntries;

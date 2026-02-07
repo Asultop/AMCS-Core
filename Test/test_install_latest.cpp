@@ -4,6 +4,10 @@
 
 #include "../Core/AMCSCore.h"
 
+using AMCS::Core::Api::McApi;
+using AMCS::Core::Launcher::InstallProgress;
+using AMCS::Core::Launcher::LauncherCore;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -15,14 +19,14 @@ int main(int argc, char *argv[])
         dest = QDir::current().absoluteFilePath(QStringLiteral("minecraft"));
     }
 
-    AMCS::Core::Api::McApi api(nullptr);
-    QVector<AMCS::Core::Api::McApi::MCVersion> latest;
-    if (!api.getLatestMCVersion(latest, AMCS::Core::Api::McApi::VersionSource::Official)) {
+    McApi api(nullptr);
+    QVector<McApi::MCVersion> latest;
+    if (!api.getLatestMCVersion(latest, McApi::VersionSource::Official)) {
         qCritical().noquote() << "Fetch latest failed:" << api.lastError();
         return 1;
     }
 
-    AMCS::Core::Api::McApi::MCVersion release;
+    McApi::MCVersion release;
     bool foundRelease = false;
     for (const auto &ver : latest) {
         if (ver.type == QLatin1String("release")) {
@@ -37,13 +41,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    AMCS::Core::Launcher::LauncherCore core;
-    QObject::connect(&core, &AMCS::Core::Launcher::LauncherCore::installPhaseChanged,
+    LauncherCore core;
+    QObject::connect(&core, &LauncherCore::installPhaseChanged,
                      [](const QString &phase) {
                          qInfo().noquote() << "[Phase]" << phase;
                      });
-    QObject::connect(&core, &AMCS::Core::Launcher::LauncherCore::installProgressUpdated,
-                     [](const AMCS::Core::Launcher::InstallProgress &progress) {
+    QObject::connect(&core, &LauncherCore::installProgressUpdated,
+                     [](const InstallProgress &progress) {
                          double downloadedMb = progress.downloadedBytes / (1024.0 * 1024.0);
                          double totalMb = progress.totalBytes / (1024.0 * 1024.0);
                          double speedMb = progress.speedBytes / (1024.0 * 1024.0);
@@ -56,7 +60,7 @@ int main(int argc, char *argv[])
                                    .arg(speedMb, 0, 'f', 2);
                      });
 
-    if (!core.installMCVersion(release, dest, AMCS::Core::Api::McApi::VersionSource::Official)) {
+    if (!core.installMCVersion(release, dest, McApi::VersionSource::Official)) {
         qCritical().noquote() << "Install failed:" << core.lastError();
         return 1;
     }

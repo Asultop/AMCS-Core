@@ -1,7 +1,11 @@
 #pragma once
 
+#include <optional>
+
 #include <QString>
 #include <QStringList>
+
+#include "../CoreSettings.h"
 
 namespace AMCS::Core::Launcher
 {
@@ -10,6 +14,7 @@ struct LaunchOptions
     QString javaPath;
     QStringList jvmArgs;
     QStringList gameArgs;
+    std::optional<AMCS::Core::CoreSettings::LaunchMode> launchMode;
     QString gameDir;
     QString assetsDir;
     QString userProperties = QStringLiteral("{}");

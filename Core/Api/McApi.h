@@ -56,9 +56,29 @@ public:
         QDateTime releaseTime;
     };
 
+    friend bool operator==(const MCVersion &lhs, const MCVersion &rhs)
+    {
+        return lhs.id == rhs.id
+            && lhs.type == rhs.type
+            && lhs.url == rhs.url
+            && lhs.time == rhs.time
+            && lhs.releaseTime == rhs.releaseTime;
+    }
+
+    friend bool operator!=(const MCVersion &lhs, const MCVersion &rhs)
+    {
+        return !(lhs == rhs);
+    }
+
     explicit McApi(Auth::McAccount *account, QObject *parent = nullptr);
 
     static Auth::McAccount *createOfflineAccount(const QString &name, QObject *parent = nullptr);
+
+    static QString defaultVersionsFileName();
+    static bool loadLocalVersions(const QString &filename, QVector<MCVersion> &outVersions,
+                                  QString *errorString = nullptr);
+    static bool saveLocalVersions(const QString &filename, const QVector<MCVersion> &versions,
+                                  QString *errorString = nullptr);
 
     void setVersionManifestCacheSeconds(int seconds);
     int versionManifestCacheSeconds() const;

@@ -1,10 +1,12 @@
 #include "McApi.h"
 
+#include <QDir>
 #include <QEventLoop>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QNetworkReply>
 #include <QFile>
+#include <QFileInfo>
 
 namespace AMCS::Core::Api
 {
@@ -12,6 +14,113 @@ McApi::McApi(Auth::McAccount *account, QObject *parent)
     : QObject(parent)
     , m_account(account)
 {
+}
+
+QString McApi::defaultVersionsFileName()
+{
+    return QStringLiteral("versions.json");
+}
+
+bool McApi::loadLocalVersions(const QString &filename, QVector<MCVersion> &outVersions,
+                              QString *errorString)
+{
+    outVersions.clear();
+
+    if (filename.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Version file path is empty");
+        }
+        return false;
+    }
+
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to open versions file: %1").arg(filename);
+        }
+        return false;
+    }
+
+    const QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError error;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if (error.error != QJsonParseError::NoError || !doc.isObject()) {
+        if (errorString) {
+            *errorString = error.errorString();
+        }
+        return false;
+    }
+
+    const QJsonObject root = doc.object();
+    const QJsonArray array = root.value(QStringLiteral("versions")).toArray();
+    for (const auto &val : array) {
+        if (!val.isObject()) {
+            continue;
+        }
+
+        const QJsonObject obj = val.toObject();
+        MCVersion version;
+        version.id = obj.value(QStringLiteral("id")).toString();
+        version.type = obj.value(QStringLiteral("type")).toString();
+        version.url = obj.value(QStringLiteral("url")).toString();
+        version.time = QDateTime::fromString(obj.value(QStringLiteral("time")).toString(), Qt::ISODate);
+        version.releaseTime = QDateTime::fromString(obj.value(QStringLiteral("releaseTime")).toString(), Qt::ISODate);
+
+        if (!version.id.isEmpty()) {
+            outVersions.append(version);
+        }
+    }
+
+    return true;
+}
+
+bool McApi::saveLocalVersions(const QString &filename, const QVector<MCVersion> &versions,
+                              QString *errorString)
+{
+    if (filename.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Version file path is empty");
+        }
+        return false;
+    }
+
+    const QString dirPath = QFileInfo(filename).absolutePath();
+    if (!QDir().mkpath(dirPath)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to create dir: %1").arg(dirPath);
+        }
+        return false;
+    }
+
+    QJsonArray array;
+    for (const auto &version : versions) {
+        QJsonObject obj;
+        obj.insert(QStringLiteral("id"), version.id);
+        obj.insert(QStringLiteral("type"), version.type);
+        obj.insert(QStringLiteral("url"), version.url);
+        obj.insert(QStringLiteral("time"), version.time.toUTC().toString(Qt::ISODate));
+        obj.insert(QStringLiteral("releaseTime"), version.releaseTime.toUTC().toString(Qt::ISODate));
+        array.append(obj);
+    }
+
+    QJsonObject root;
+    root.insert(QStringLiteral("version"), 1);
+    root.insert(QStringLiteral("versions"), array);
+
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to write versions file: %1").arg(filename);
+        }
+        return false;
+    }
+
+    const QJsonDocument doc(root);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+    return true;
 }
 
 Auth::McAccount *McApi::createOfflineAccount(const QString &name, QObject *parent)
