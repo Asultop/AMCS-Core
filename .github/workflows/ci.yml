@@ -6,87 +6,69 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  QT_VERSION: '6.5.2'
-
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build: [Release]
-
+        include:
+          - name: windows
+            os: windows-latest
+            generator: "Visual Studio 17 2022"
+            arch: x64
+            config: Release
+          - name: linux
+            os: ubuntu-latest
+            generator: Ninja
+            arch: x86_64
+            config: Release
+          - name: macos
+            os: macos-latest
+            generator: Ninja
+            arch: x86_64
+            config: Release
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache CMake build
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-${{ matrix.build }}
 
       - name: Setup Qt
         uses: qt-actions/setup-qt@v2
         with:
-          version: ${{ env.QT_VERSION }}
-          components: qtbase qtnetwork qttools
+          qt-version: '6.6.2'
 
-      - name: Configure CMake
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+      - name: Configure (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cmake -S . -B build -G "${{ matrix.generator }}" -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
 
-      - name: Build
-        run: cmake --build build --config ${{ matrix.build }} -j
+      - name: Configure (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cmake --build build --config ${{ matrix.config }} -- /m
+
+      - name: Build (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cmake --build build -- -j$(nproc)
 
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure -C ${{ matrix.build }}
-name: ci
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            ctest -C ${{ matrix.config }} --output-on-failure
+          else
+            ctest --output-on-failure -j 2
+          fi
 
-on:
-  push:
-    branches: ["**"]
-  pull_request:
-
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install ICU (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # 安装编译依赖
-          sudo apt update && sudo apt install -y wget build-essential libtool autoconf
-          # 编译安装 ICU 73
-          wget https://github.com/unicode-org/icu/releases/download/release-73-2/icu4c-73_2-src.tgz
-          tar -zxvf icu4c-73_2-src.tgz
-          cd icu/source
-          ./configure --prefix=/usr/local --enable-shared --enable-static
-          make -j$(nproc)
-          sudo make install
-          sudo echo "/usr/local/lib" > /etc/ld.so.conf.d/icu73.conf
-          sudo ldconfig
-          # 验证 ICU 版本
-          icu-config --version
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      - name: Upload ctest log
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          version: "6.7.3"
-          modules: "qt5compat"
-          archives: "qtbase qtbase-private qttools"
-      - name: Configure
-        run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build --config Release
+          name: ctest-log-${{ matrix.name }}
+          path: build/Testing
