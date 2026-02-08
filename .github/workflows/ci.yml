@@ -21,7 +21,7 @@ jobs:
         with:
           version: "6.9.*"
           modules: "qt5compat"
-          archives: "qtbase qtbase-private qttools"
+          archives: "qtbase-private qttools"
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 
