@@ -22,7 +22,14 @@ jobs:
         with:
           version: "6.7.3"
           modules: "qt5compat"
-          archives: "qtbase qttools"
+          archives: "qtbase qtbase-private qttools"
+
+      - name: Install ICU 73 (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "deb http://old-releases.ubuntu.com/ubuntu/ mantic main universe" | sudo tee /etc/apt/sources.list.d/icu73.list
+          sudo apt-get update
+          sudo apt-get install -y libicu73
 
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
