@@ -62,12 +62,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install ICU (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # 安装编译依赖
+          sudo apt update && sudo apt install -y wget build-essential libtool autoconf
+          # 编译安装 ICU 73
+          wget https://github.com/unicode-org/icu/releases/download/release-73-2/icu4c-73_2-src.tgz
+          tar -zxvf icu4c-73_2-src.tgz
+          cd icu/source
+          ./configure --prefix=/usr/local --enable-shared --enable-static
+          make -j$(nproc)
+          sudo make install
+          sudo echo "/usr/local/lib" > /etc/ld.so.conf.d/icu73.conf
+          sudo ldconfig
+          # 验证 ICU 版本
+          icu-config --version
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.9.*"
+          version: "6.7.3"
           modules: "qt5compat"
-          archives: "qtbase qtbase-private"
+          archives: "qtbase qtbase-private qttools"
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 
