@@ -24,16 +24,12 @@ jobs:
           modules: "qt5compat"
           archives: "qtbase qtbase-private qttools"
 
-      - name: Install ICU 73 (Ubuntu)
+      - name: Install ICU (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          {
-            echo "deb http://old-releases.ubuntu.com/ubuntu/ mantic main universe";
-            echo "deb http://old-releases.ubuntu.com/ubuntu/ mantic-updates main universe";
-            echo "deb http://old-releases.ubuntu.com/ubuntu/ mantic-security main universe";
-          } | sudo tee /etc/apt/sources.list.d/icu73.list
+          set -e
           sudo apt-get update
-          sudo apt-get install -y libicu73
+          sudo apt-get install -y libicu4j-java
 
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
