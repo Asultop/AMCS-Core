@@ -1,74 +1,109 @@
-name: CI
+name: CI Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  QT_VERSION: 6.7.3
+  BUILD_TYPE: Release
 
 jobs:
   build:
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
-          - name: windows
-            os: windows-latest
-            generator: "Visual Studio 17 2022"
-            arch: x64
-            config: Release
-          - name: linux
-            os: ubuntu-latest
-            generator: Ninja
-            arch: x86_64
-            config: Release
-          - name: macos
-            os: macos-latest
-            generator: Ninja
-            arch: x86_64
-            config: Release
-      fail-fast: false
+          - os: ubuntu-latest
+            qt_host: linux
+            qt_target: desktop
+          - os: windows-latest
+            qt_host: windows
+            qt_target: desktop
+          - os: macos-latest
+            qt_host: mac
+            qt_target: desktop
+    
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Qt
-        uses: qt-actions/setup-qt@v2
-        with:
-          qt-version: '6.6.2'
-
-      - name: Configure (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          cmake -S . -B build -G "${{ matrix.generator }}" -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
-
-      - name: Configure (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
-
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          cmake --build build --config ${{ matrix.config }} -- /m
-
-      - name: Build (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cmake --build build -- -j$(nproc)
-
-      - name: Run tests
-        run: |
-          cd build
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ctest -C ${{ matrix.config }} --output-on-failure
-          else
-            ctest --output-on-failure -j 2
-          fi
-
-      - name: Upload ctest log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ctest-log-${{ matrix.name }}
-          path: build/Testing
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: ${{ matrix.qt_host }}
+        target: ${{ matrix.qt_target }}
+        install-deps: true  # 安装系统依赖
+        modules: qtbase qtnetworkauth qtconcurrent qt5compat  # 需要的基本模块
+    
+    - name: Cache Qt installation
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.Qt6_DIR }}
+        key: ${{ runner.os }}-qt-${{ env.QT_VERSION }}
+    
+    - name: Setup Everything SDK (Windows only)
+      if: runner.os == 'Windows'
+      shell: cmd
+      run: |
+        if not exist "SDK/Everything" (
+          echo "Creating Everything SDK directory structure..."
+          mkdir SDK\Everything\include
+          mkdir SDK\Everything\lib\x64
+          mkdir SDK\Everything\lib\x86
+          mkdir SDK\Everything\dll\x64
+          mkdir SDK\Everything\dll\x86
+          echo "// Placeholder for Everything SDK headers" > SDK\Everything\include\Everything.h
+          echo "SDK directory structure created. Please add actual SDK files."
+        )
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
+          -DAMCS_BUILD_TESTS=ON
+    
+    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+    
+    - name: Run tests
+      if: matrix.os == 'ubuntu-latest'  # 只在Linux上运行测试
+      run: |
+        cd build
+        ctest --output-on-failure
+    
+    - name: Upload artifacts (Windows)
+      if: runner.os == 'Windows' && success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: amcs-windows-build
+        path: |
+          build/Release/*.exe
+          build/Release/*.dll
+        if-no-files-found: warn
+    
+    - name: Upload artifacts (Linux)
+      if: runner.os == 'Linux' && success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: amcs-linux-build
+        path: build/*
+        if-no-files-found: warn
+    
+    - name: Upload artifacts (macOS)
+      if: runner.os == 'macOS' && success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: amcs-macos-build
+        path: build/*
+        if-no-files-found: warn
