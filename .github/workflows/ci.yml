@@ -19,7 +19,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.*"
+          version: "6.9.*"
           modules: "qt5compat"
           archives: "qtbase qtbase-private qttools"
       - name: Configure
