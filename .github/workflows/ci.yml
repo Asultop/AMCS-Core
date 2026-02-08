@@ -16,14 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.7.3"
-          modules: "qt5compat"
-          archives: "qtbase qtbase-private qttools"
-
       - name: Install ICU (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -41,6 +33,12 @@ jobs:
           # 验证 ICU 版本
           icu-config --version
 
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          modules: "qt5compat"
+          archives: "qtbase qtbase-private qttools"
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 
