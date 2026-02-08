@@ -27,9 +27,19 @@ jobs:
       - name: Install ICU (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          set -e
-          sudo apt-get update
-          sudo apt-get install -y libicu4j-java
+          # 安装编译依赖
+          sudo apt update && sudo apt install -y wget build-essential libtool autoconf
+          # 编译安装 ICU 73
+          wget https://github.com/unicode-org/icu/releases/download/release-73-2/icu4c-73_2-src.tgz
+          tar -zxvf icu4c-73_2-src.tgz
+          cd icu/source
+          ./configure --prefix=/usr/local --enable-shared --enable-static
+          make -j$(nproc)
+          sudo make install
+          sudo echo "/usr/local/lib" > /etc/ld.so.conf.d/icu73.conf
+          sudo ldconfig
+          # 验证 ICU 版本
+          icu-config --version
 
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
