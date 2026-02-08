@@ -20,8 +20,9 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.5.2"
+          version: "6.7.3"
           modules: "qt5compat"
+          archives: "qtbase,qtbase-private"
 
       - name: Configure
         run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release

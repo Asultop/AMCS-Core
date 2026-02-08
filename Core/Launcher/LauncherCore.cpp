@@ -16,9 +16,7 @@
 #include <QProcess>
 #include <QMap>
 
-#if defined(Q_OS_WIN)
 #include <QtCore/private/qzipreader_p.h>
-#endif
 
 #include "../Download/AsulMultiDownloader.h"
 
@@ -310,7 +308,6 @@ static bool shouldSkipZipEntry(const QString &path)
 
 static bool extractZipToDir(const QString &zipPath, const QString &destDir, QString *errorString)
 {
-#if defined(Q_OS_WIN)
     QZipReader reader(zipPath);
     if (!reader.exists()) {
         if (errorString) {
@@ -361,51 +358,6 @@ static bool extractZipToDir(const QString &zipPath, const QString &destDir, QStr
         return false;
     }
     return true;
-#else
-    if (zipPath.isEmpty() || destDir.isEmpty()) {
-        if (errorString) {
-            *errorString = QStringLiteral("Zip path or destination is empty");
-        }
-        return false;
-    }
-
-    if (!QDir().mkpath(destDir)) {
-        if (errorString) {
-            *errorString = QStringLiteral("Failed to create dir: %1").arg(destDir);
-        }
-        return false;
-    }
-
-    QProcess process;
-    const QStringList args = {
-        QStringLiteral("-o"),
-        QStringLiteral("-j"),
-        zipPath,
-        QStringLiteral("-d"),
-        destDir
-    };
-    process.start(QStringLiteral("unzip"), args);
-    if (!process.waitForFinished(15000)) {
-        process.kill();
-        process.waitForFinished(1000);
-        if (errorString) {
-            *errorString = QStringLiteral("unzip timeout: %1").arg(zipPath);
-        }
-        return false;
-    }
-
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        if (errorString) {
-            const QString err = QString::fromLocal8Bit(process.readAllStandardError()).trimmed();
-            *errorString = err.isEmpty()
-                ? QStringLiteral("unzip failed: %1").arg(zipPath)
-                : err;
-        }
-        return false;
-    }
-
-    return true;
-#endif
 }
 
 static QJsonObject mergeVersionJson(const QJsonObject &parent, const QJsonObject &child)
