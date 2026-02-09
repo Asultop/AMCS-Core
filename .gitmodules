@@ -1,3 +1,6 @@
 [submodule "SDK/QuaZip"]
 	path = SDK/QuaZip
 	url = https://github.com/stachenov/quazip.git
+[submodule "SDK/ZLib"]
+	path = SDK/ZLib
+	url = https://github.com/madler/zlib.git

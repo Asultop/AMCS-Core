@@ -8,25 +8,27 @@
 
 // ==================== AsulMultiDownloader 实现 ====================
 
-  AsulMultiDownloader::AsulMultiDownloader(QObject *parent)
-    : QObject(parent)
-    , m_maxConcurrentDownloads(32)
-    , m_largeFileThreshold(10 * 1024 * 1024)
-    , m_segmentCount(4)
-    , m_maxConnectionsPerHost(8)
-    , m_downloadTimeout(30000)
-    , m_autoRetry(true)
-    , m_maxRetryCount(10)
-    , m_activeDownloads(0)
-    , m_taskIdCounter(0)
-    , m_speedMonitoringEnabled(true)
-    , m_speedThreshold(256 * 1024)
-    , m_lastSpeedCheck(0)
-    , m_lastBytesDownloaded(0)
-    , m_monitorLastTime(0)
-    , m_monitorLastBytes(0)
-    , m_allFinishedEmitted(false)
-    , m_networkManagerPoolSize(8)  // 优化：使用8个网络管理器，减少资源占用
+    AsulMultiDownloader::AsulMultiDownloader(QObject *parent)
+        : QObject(parent)
+        , m_maxConcurrentDownloads(128)
+        , m_largeFileThreshold(10 * 1024 * 1024)
+        , m_segmentCount(8)
+        , m_maxConnectionsPerHost(32)
+        , m_downloadTimeout(30000)
+        , m_autoRetry(true)
+        , m_maxRetryCount(10)
+        , m_activeDownloads(0)
+        , m_taskIdCounter(0)
+        , m_speedMonitoringEnabled(true)
+        , m_speedThreshold(256 * 1024)
+        , m_lastSpeedCheck(0)
+        , m_lastBytesDownloaded(0)
+        , m_monitorLastTime(0)
+        , m_monitorLastBytes(0)
+        , m_allFinishedEmitted(false)
+        , m_networkManagerPoolSize(16)  // 优化：使用更多网络管理器以提升并发
+        , m_maxConcurrentDownloadsCap(512)
+        , m_segmentCountCap(16)
 {
     // 初始化网络管理器池
     for (int i = 0; i < m_networkManagerPoolSize; ++i) {
@@ -1138,29 +1140,29 @@ void DownloadTask::mergeSegments()
         return;
     }
 
-    // 依次读取并写入每个分段文件
+    // 依次读取并写入每个分段文件（较大缓冲以减少系统调用）
     for (int i = 0; i < m_segmentCount; ++i) {
-        QString segmentPath = m_savePath + QString(".part%1").arg(i);
+        QString segmentPath = m_savePath + QStringLiteral(".part%1").arg(i);
+
         QFile segmentFile(segmentPath);
 
         if (!segmentFile.open(QIODevice::ReadOnly)) {
-            m_errorString = QString("Cannot open segment file: %1").arg(segmentPath);
+            m_errorString = QStringLiteral("Cannot open segment file: %1").arg(segmentPath);
             outFile.close();
             locker.unlock();
             emit failed(m_taskId, m_errorString);
             return;
         }
 
-        // 读取并写入数据
+        // 读取并写入数据（使用更大的缓冲区以提高吞吐）
         while (!segmentFile.atEnd()) {
-            QByteArray data = segmentFile.read(8192);
+            QByteArray data = segmentFile.read(65536);
             outFile.write(data);
         }
 
         segmentFile.close();
         segmentFile.remove();  // 删除分段文件
     }
-
     outFile.close();
 
     // 修复：分段下载完成时也更新downloadedSize
@@ -1402,6 +1404,28 @@ void AsulMultiDownloader::onMonitorDownloads()
     // 尝试处理队列中的任务
     if (m_activeDownloads < m_maxConcurrentDownloads && !m_taskQueue.isEmpty()) {
         processQueue();
+    }
+
+    // === 自适应并发/分段调整 ===
+    if (m_speedMonitoringEnabled) {
+        qint64 speed = calculateCurrentSpeed();
+        // 当速度低于阈值时，逐步提高并发和分段数以提升吞吐（受上限限制）
+        if (speed > 0 && speed < m_speedThreshold) {
+            // 增加并发（倍增策略）
+            int newConcurrent = qMin(m_maxConcurrentDownloads * 2, m_maxConcurrentDownloadsCap);
+            if (newConcurrent > m_maxConcurrentDownloads) {
+                m_maxConcurrentDownloads = newConcurrent;
+            }
+            // 增加分段数
+            int newSeg = qMin(m_segmentCount * 2, m_segmentCountCap);
+            if (newSeg > m_segmentCount) {
+                m_segmentCount = newSeg;
+            }
+        } else if (speed > m_speedThreshold * 4) {
+            // 速度很好时，尝试收敛到默认值以节省资源
+            m_maxConcurrentDownloads = qMax(4, m_maxConcurrentDownloads / 2);
+            m_segmentCount = qMax(1, m_segmentCount / 2);
+        }
     }
 }
 

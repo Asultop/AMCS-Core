@@ -16,6 +16,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Concurrent)
 
 set(EVERYTHING_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SDK/Everything)
 set(QUAZIP_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SDK/QuaZip)
+set(ZLIB_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SDK/ZLib)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(EVERYTHING_DLL ${EVERYTHING_SDK_DIR}/dll/x64/Everything64.dll)
@@ -24,6 +25,11 @@ if (WIN32)
     set(EVERYTHING_DLL ${EVERYTHING_SDK_DIR}/dll/x86/Everything32.dll)
     set(EVERYTHING_LIB ${EVERYTHING_SDK_DIR}/lib/x86/Everything32.lib)
   endif()
+  # Use local ZLib on Windows
+  set(ZLIB_ROOT ${ZLIB_SDK_DIR})
+  add_subdirectory(${ZLIB_SDK_DIR} ${CMAKE_BINARY_DIR}/ZLib EXCLUDE_FROM_ALL)
+  set(ZLIB_LIBRARY zlibstatic)
+  set(ZLIB_INCLUDE_DIR ${ZLIB_SDK_DIR})
 endif()
 
 add_library(amcs_core

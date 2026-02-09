@@ -472,6 +472,10 @@ private:
     QTimer *m_monitorTimer;              // 新增：监控定时器
     bool m_allFinishedEmitted;           // 防止重复发射完成信号
 
+    // 自适应参数上限
+    int m_maxConcurrentDownloadsCap;
+    int m_segmentCountCap;
+
     // 线程安全
     mutable QMutex m_mutex;
 
