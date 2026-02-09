@@ -1,94 +1,31 @@
-name: CI
+name: ci
 
 on:
   push:
-    branches: [ main ]
+    branches: ["**"]
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - name: windows
-            os: windows-latest
-            generator: "Visual Studio 17 2022"
-            arch: x64
-            config: Release
-          - name: linux
-            os: ubuntu-latest
-            generator: Ninja
-            arch: x86_64
-            config: Release
-          - name: macos
-            os: macos-latest
-            generator: Ninja
-            arch: x86_64
-            config: Release
-      fail-fast: false
     runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: jurplel/install-qt@v2
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
         with:
-          version: '6.6.2'
-          host: windows
+          version: "6.7.3"
+          modules: "qt5compat"
+          archive: "qtbase qtbase-private"
 
-      - name: Install Qt (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: jurplel/install-qt@v2
-        with:
-          version: '6.6.2'
-          host: linux
+      - name: Configure
+        run: cmake -S . -B build -DAMCS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 
-      - name: Install Qt (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: jurplel/install-qt@v2
-        with:
-          version: '6.6.2'
-          host: mac
-
-      - name: Configure (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          cmake -S . -B build -G "${{ matrix.generator }}" -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
-
-      - name: Configure (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DAMCS_BUILD_TESTS=ON
-
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          cmake --build build --config ${{ matrix.config }} -- /m
-
-      - name: Build (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cmake --build build -- -j$(nproc)
-
-      - name: Run tests (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          cd build
-          ctest -C ${{ matrix.config }} --output-on-failure
-
-      - name: Run tests (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cd build
-          ctest --output-on-failure -j 2
-
-      - name: Upload ctest log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ctest-log-${{ matrix.name }}
-          path: build/Testing
+      - name: Build
+        run: cmake --build build --config Release
