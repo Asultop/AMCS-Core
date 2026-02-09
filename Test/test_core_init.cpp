@@ -15,7 +15,8 @@ int main(int argc, char *argv[])
 
     const QString baseDir = QDir::currentPath();
     const QString dataDir = QDir(baseDir).absoluteFilePath(QStringLiteral("AMCS/Data"));
-
+    
+    
     if (!QDir().mkpath(dataDir)) {
         qCritical().noquote() << "Failed to create test dir" << dataDir;
         return 1;
@@ -48,7 +49,8 @@ int main(int argc, char *argv[])
     }
 
     auto *settings = CoreSettings::getInstance();
-    if (!settings->coreInit(baseDir)) {
+    QDir initDir(QDir::current());
+    if (!settings->coreInit(initDir.absoluteFilePath(QStringLiteral("AMCS")))) {
         qCritical().noquote() << "Init failed:" << settings->getLastError();
         return 1;
     }

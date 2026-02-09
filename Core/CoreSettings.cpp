@@ -16,9 +16,9 @@ bool CoreSettings::coreInit(const QString &baseDir)
 
     const QString normalizedBaseDir = QDir(baseDir).absolutePath();
     setBaseDir(normalizedBaseDir);
-    const QString dataDir = QDir(normalizedBaseDir).absoluteFilePath(QStringLiteral("AMCS/Data"));
+    const QString dataDir = QDir(normalizedBaseDir).absoluteFilePath(QStringLiteral("Data"));
     setAccountsDir(dataDir);
-    setVersionsDir(dataDir);
+    setVersionsDataDir(dataDir);
     setAccountsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("accounts.json")));
     setVersionsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("versions.json")));
 
@@ -55,7 +55,68 @@ bool CoreSettings::coreInit(const QString &baseDir)
 
 bool CoreSettings::coreInit()
 {
+    setBaseDir(QLatin1String("AMCS"));
     return coreInit(getBaseDir());
+}
+
+QString CoreSettings::minecraftDir(const QString &baseDir) const
+{
+    return QDir(baseDir).absoluteFilePath(QStringLiteral(".minecraft"));
+}
+
+QString CoreSettings::versionsDir(const QString &baseDir) const
+{
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("versions"));
+}
+
+QString CoreSettings::librariesDir(const QString &baseDir) const
+{
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("libraries"));
+}
+
+QString CoreSettings::assetsDir(const QString &baseDir) const
+{
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("assets"));
+}
+
+QString CoreSettings::indexesDir(const QString &assetsDir) const
+{
+    return QDir(assetsDir).absoluteFilePath(QStringLiteral("indexes"));
+}
+
+QString CoreSettings::objectsDir(const QString &assetsDir) const
+{
+    return QDir(assetsDir).absoluteFilePath(QStringLiteral("objects"));
+}
+
+QString CoreSettings::minecraftDir() const
+{
+    return minecraftDir(getBaseDir());
+}
+
+QString CoreSettings::versionsDir() const
+{
+    return versionsDir(getBaseDir());
+}
+
+QString CoreSettings::librariesDir() const
+{
+    return librariesDir(getBaseDir());
+}
+
+QString CoreSettings::assetsDir() const
+{
+    return assetsDir(getBaseDir());
+}
+
+QString CoreSettings::indexesDir() const
+{
+    return indexesDir(assetsDir());
+}
+
+QString CoreSettings::objectsDir() const
+{
+    return objectsDir(assetsDir());
 }
 
 QString CoreSettings::accountsFilePath() const

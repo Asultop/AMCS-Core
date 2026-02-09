@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "versions": [
+        {
+            "id": "1.21.11",
+            "releaseTime": "2025-12-09T12:23:30Z",
+            "time": "2026-02-03T06:42:49Z",
+            "type": "release",
+            "url": "https://piston-meta.mojang.com/v1/packages/83a73e28cc09cbf176578b0d893598e47db6c18e/1.21.11.json"
+        }
+    ]
+}

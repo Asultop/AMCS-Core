@@ -506,11 +506,12 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
     }
 
     const QString baseDir = QDir(dest).absolutePath();
-    const QString versionsDir = QDir(baseDir).absoluteFilePath(QStringLiteral("versions"));
-    const QString librariesDir = QDir(baseDir).absoluteFilePath(QStringLiteral("libraries"));
-    const QString assetsDir = QDir(baseDir).absoluteFilePath(QStringLiteral("assets"));
-    const QString indexesDir = QDir(assetsDir).absoluteFilePath(QStringLiteral("indexes"));
-    const QString objectsDir = QDir(assetsDir).absoluteFilePath(QStringLiteral("objects"));
+    auto *settings = AMCS::Core::CoreSettings::getInstance();
+    const QString versionsDir = settings->versionsDir(baseDir);
+    const QString librariesDir = settings->librariesDir(baseDir);
+    const QString assetsDir = settings->assetsDir(baseDir);
+    const QString indexesDir = settings->indexesDir(assetsDir);
+    const QString objectsDir = settings->objectsDir(assetsDir);
 
     if (!QDir().mkpath(versionsDir) || !QDir().mkpath(librariesDir)
         || !QDir().mkpath(indexesDir) || !QDir().mkpath(objectsDir)) {
@@ -817,7 +818,6 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
         }
     }
 
-    auto *settings = CoreSettings::getInstance();
     const QString versionsFilePath = settings->versionsFilePath();
     if (!versionsFilePath.isEmpty()) {
         QVector<Api::McApi::MCVersion> versions = settings->getLocalVersions();
@@ -853,6 +853,15 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
     return true;
 }
 
+bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
+                                    Api::McApi::VersionSource source)
+{
+    auto *settings = AMCS::Core::CoreSettings::getInstance();
+    const QString base = settings ? settings->getBaseDir() : QString();
+    const QString dest = settings->minecraftDir(base);
+    return installMCVersion(version, dest, source);
+}
+
 bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
                                 const Auth::McAccount &account,
                                 const QString &baseDir,
@@ -862,11 +871,10 @@ bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
     m_lastError.clear();
 
     const QString base = QDir(baseDir).absolutePath();
-    const QString versionsDir = QDir(base).absoluteFilePath(QStringLiteral("versions"));
-    const QString librariesDir = QDir(base).absoluteFilePath(QStringLiteral("libraries"));
-    const QString assetsDir = options.assetsDir.isEmpty()
-        ? QDir(base).absoluteFilePath(QStringLiteral("assets"))
-        : options.assetsDir;
+    auto *settings = AMCS::Core::CoreSettings::getInstance();
+    const QString versionsDir = settings->versionsDir(base);
+    const QString librariesDir = settings->librariesDir(base);
+    const QString assetsDir = options.assetsDir.isEmpty() ? settings->assetsDir(base) : options.assetsDir;
 
     QJsonObject merged;
     if (!loadMergedVersionJson(versionsDir, version.id, &merged, &m_lastError)) {
@@ -1039,7 +1047,8 @@ bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
 bool LauncherCore::isVersionInstalled(const Api::McApi::MCVersion &version, const QString &baseDir) const
 {
     const QString base = QDir(baseDir).absolutePath();
-    const QString versionDir = QDir(base).absoluteFilePath(QStringLiteral("versions/%1").arg(version.id));
+    auto *settings = AMCS::Core::CoreSettings::getInstance();
+    const QString versionDir = QDir(settings->versionsDir(base)).absoluteFilePath(version.id);
     const QString versionJsonPath = QDir(versionDir).absoluteFilePath(version.id + QStringLiteral(".json"));
     const QString jarPath = QDir(versionDir).absoluteFilePath(version.id + QStringLiteral(".jar"));
     return QFileInfo::exists(versionJsonPath) && QFileInfo::exists(jarPath);

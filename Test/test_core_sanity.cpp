@@ -13,7 +13,8 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
 
     auto *settings = CoreSettings::getInstance();
-    if (!settings->coreInit(QDir::currentPath())) {
+    QDir initDir(QDir::current());
+    if (!settings->coreInit(initDir.absoluteFilePath(QStringLiteral("AMCS")))) {
         qCritical().noquote() << "Core init failed:" << settings->getLastError();
         return 1;
     }

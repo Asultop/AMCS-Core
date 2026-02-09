@@ -34,6 +34,22 @@ public:
     bool coreInit(const QString &baseDir);
     bool coreInit();
 
+    // Standard paths for game data (use BaseDir as root)
+    QString minecraftDir(const QString &baseDir) const;
+    QString versionsDir(const QString &baseDir) const;
+    QString librariesDir(const QString &baseDir) const;
+    QString assetsDir(const QString &baseDir) const;
+    QString indexesDir(const QString &assetsDir) const;
+    QString objectsDir(const QString &assetsDir) const;
+
+    QString minecraftDir() const;
+    QString versionsDir() const;
+    QString librariesDir() const;
+    QString assetsDir() const;
+    QString indexesDir() const;
+    QString objectsDir() const;
+    
+
     QString accountsFilePath() const;
     QString versionsFilePath() const;
 
@@ -55,7 +71,7 @@ private:
     Q_PROPERTY_CREATE(LaunchMode, LaunchMode)
     Q_PROPERTY_CREATE(QString, BaseDir)
     Q_PROPERTY_CREATE(QString, AccountsDir)
-    Q_PROPERTY_CREATE(QString, VersionsDir)
+    Q_PROPERTY_CREATE(QString, VersionsDataDir)
     Q_PROPERTY_CREATE(QString, AccountsFilePath)
     Q_PROPERTY_CREATE(QString, VersionsFilePath)
     Q_PROPERTY_CREATE(QVector<Api::McApi::MCVersion>, LocalVersions)

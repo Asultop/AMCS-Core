@@ -32,10 +32,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Qt
-        uses: qt-actions/setup-qt@v2
+      - name: Install Qt (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: jurplel/install-qt@v2
         with:
-          qt-version: '6.6.2'
+          version: '6.6.2'
+          host: windows
+
+      - name: Install Qt (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: jurplel/install-qt@v2
+        with:
+          version: '6.6.2'
+          host: linux
+
+      - name: Install Qt (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: jurplel/install-qt@v2
+        with:
+          version: '6.6.2'
+          host: mac
 
       - name: Configure (Windows)
         if: matrix.os == 'windows-latest'
@@ -57,14 +73,18 @@ jobs:
         run: |
           cmake --build build -- -j$(nproc)
 
-      - name: Run tests
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
           cd build
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ctest -C ${{ matrix.config }} --output-on-failure
-          else
-            ctest --output-on-failure -j 2
-          fi
+          ctest -C ${{ matrix.config }} --output-on-failure
+
+      - name: Run tests (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd build
+          ctest --output-on-failure -j 2
 
       - name: Upload ctest log
         if: always()

@@ -17,11 +17,12 @@ int main(int argc, char *argv[])
     if (argc >= 2) {
         dest = QString::fromLocal8Bit(argv[1]);
     } else {
-        dest = QDir::current().absoluteFilePath(QStringLiteral("minecraft"));
+        dest = QDir::current().absoluteFilePath(QStringLiteral(".minecraft"));
     }
 
     auto *settings = CoreSettings::getInstance();
-    if (!settings->coreInit(QDir::currentPath())) {
+    QDir initDir(QDir::current());
+    if (!settings->coreInit(initDir.absoluteFilePath(QStringLiteral("AMCS")))) {
         qCritical().noquote() << "Core init failed:" << settings->getLastError();
         return 1;
     }
@@ -67,11 +68,11 @@ int main(int argc, char *argv[])
                                    .arg(speedMb, 0, 'f', 2);
                      });
 
-    if (!core.installMCVersion(release, dest, McApi::VersionSource::Official)) {
+    if (!core.installMCVersion(release, McApi::VersionSource::Official)) {
         qCritical().noquote() << "Install failed:" << core.lastError();
         return 1;
     }
 
-    qInfo().noquote() << "Install finished:" << dest;
+    qInfo().noquote() << "Install finished:" << settings->versionsDir();
     return 0;
 }
