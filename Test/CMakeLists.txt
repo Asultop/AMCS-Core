@@ -116,3 +116,12 @@ target_link_libraries(amcs_test_manager_account amcs_core Qt${QT_VERSION_MAJOR}:
 if (WIN32 AND DEFINED EVERYTHING_DLL)
   copy_everything_dll(amcs_test_manager_account)
 endif()
+
+add_executable(amcs_test_quazip_pack_unpack
+  test_quazip_pack_unpack.cpp
+)
+
+target_link_libraries(amcs_test_quazip_pack_unpack amcs_core Qt${QT_VERSION_MAJOR}::Core)
+if (WIN32 AND DEFINED EVERYTHING_DLL)
+  copy_everything_dll(amcs_test_quazip_pack_unpack)
+endif()

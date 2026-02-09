@@ -16,7 +16,8 @@
 #include <QProcess>
 #include <QMap>
 
-#include <QtCore/private/qzipreader_p.h>
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
 
 #include "../Download/AsulMultiDownloader.h"
 
@@ -294,6 +295,9 @@ static bool downloadFileSync(const QUrl &url, const QString &savePath, QString *
 static bool shouldSkipZipEntry(const QString &path)
 {
     const QString clean = QDir::cleanPath(path).replace('\\', '/');
+    if (clean.startsWith(QStringLiteral("META-INF/native/"), Qt::CaseInsensitive)) {
+        return false;
+    }
     if (clean.startsWith(QStringLiteral("META-INF/"), Qt::CaseInsensitive)) {
         return true;
     }
@@ -308,49 +312,65 @@ static bool shouldSkipZipEntry(const QString &path)
 
 static bool extractZipToDir(const QString &zipPath, const QString &destDir, QString *errorString)
 {
-    QZipReader reader(zipPath);
-    if (!reader.exists()) {
+    QuaZip zip(zipPath);
+    if (!zip.open(QuaZip::mdUnzip)) {
         if (errorString) {
-            *errorString = QStringLiteral("Zip not found: %1").arg(zipPath);
+            *errorString = QStringLiteral("Failed to open zip: %1").arg(zipPath);
         }
         return false;
     }
 
     const QString baseDir = QDir(destDir).absolutePath();
     int extractedCount = 0;
-    const auto entries = reader.fileInfoList();
-    qInfo().noquote() << "[natives] zip entries:" << entries.size() << zipPath;
-    for (const auto &entry : entries) {
-        if (entry.isDir) {
-            continue;
-        }
-        if (entry.isSymLink) {
-            continue;
-        }
-        if (shouldSkipZipEntry(entry.filePath)) {
+    
+    for (bool more = zip.goToFirstFile(); more; more = zip.goToNextFile()) {
+        QString filePath = zip.getCurrentFileName();
+        QuaZipFileInfo64 fileInfo;
+        if (!zip.getCurrentFileInfo(&fileInfo)) {
             continue;
         }
 
-        const QString fileName = QFileInfo(entry.filePath).fileName();
+        if (filePath.endsWith('/') || filePath.endsWith('\\') || fileInfo.isSymbolicLink()) {
+            continue;
+        }
+        if (shouldSkipZipEntry(filePath)) {
+            continue;
+        }
+
+        const QString fileName = QFileInfo(filePath).fileName();
         if (fileName.isEmpty()) {
             continue;
         }
 
         const QString outPath = QDir(baseDir).absoluteFilePath(fileName);
 
+        QuaZipFile zipFile(&zip);
+        if (!zipFile.open(QIODevice::ReadOnly)) {
+            if (errorString) {
+                *errorString = QStringLiteral("Failed to open file in zip: %1").arg(filePath);
+            }
+            zip.close();
+            return false;
+        }
+
         QFile outFile(outPath);
         if (!outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             if (errorString) {
                 *errorString = QStringLiteral("Failed to write: %1").arg(outPath);
             }
+            zipFile.close();
+            zip.close();
             return false;
         }
-        outFile.write(reader.fileData(entry.filePath));
+
+        QByteArray data = zipFile.readAll();
+        outFile.write(data);
         outFile.close();
+        zipFile.close();
         extractedCount += 1;
     }
 
-    reader.close();
+    zip.close();
     if (extractedCount == 0) {
         if (errorString) {
             *errorString = QStringLiteral("No native files extracted from: %1").arg(zipPath);
@@ -862,6 +882,95 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
     return installMCVersion(version, dest, source);
 }
 
+static bool ensureNativesExtracted(const QString &versionId,
+                                   const QString &versionDir,
+                                   const QString &librariesDir,
+                                   const QJsonObject &versionJson,
+                                   QString *errorString)
+{
+    const QString nativesDir = QDir(versionDir).absoluteFilePath(versionId + QStringLiteral("-natives"));
+    
+    if (QDir(nativesDir).exists()) {
+        const QStringList entries = QDir(nativesDir).entryList(QDir::Files | QDir::NoDotAndDotDot);
+        if (!entries.isEmpty()) {
+            return true;
+        }
+    }
+    
+    if (!QDir().mkpath(nativesDir)) {
+        if (errorString) {
+            *errorString = QStringLiteral("Failed to create natives dir: %1").arg(nativesDir);
+        }
+        return false;
+    }
+    
+    QSet<QString> nativeJarPaths;
+    const QJsonArray libraries = versionJson.value(QStringLiteral("libraries")).toArray();
+    int nativeLibCount = 0;
+    int nativeMatchCount = 0;
+    
+    for (const auto &libVal : libraries) {
+        const QJsonObject libObj = libVal.toObject();
+        const QJsonArray rules = libObj.value(QStringLiteral("rules")).toArray();
+        if (!ruleAllows(rules)) {
+            continue;
+        }
+        
+        const QJsonObject libDownloads = libObj.value(QStringLiteral("downloads")).toObject();
+        const QJsonObject artifact = libDownloads.value(QStringLiteral("artifact")).toObject();
+        const QString artifactPath = artifact.value(QStringLiteral("path")).toString();
+        
+        const QString nativeKey = resolveNativeClassifier(libObj);
+        if (!nativeKey.isEmpty()) {
+            nativeLibCount += 1;
+            const QJsonObject classifiers = libDownloads.value(QStringLiteral("classifiers")).toObject();
+            const QJsonObject nativeObj = classifiers.value(nativeKey).toObject();
+            const QString nativePath = nativeObj.value(QStringLiteral("path")).toString();
+            if (!nativePath.isEmpty()) {
+                const QString savePath = QDir(librariesDir).absoluteFilePath(nativePath);
+                if (QFileInfo(savePath).exists()) {
+                    nativeJarPaths.insert(savePath);
+                    nativeMatchCount += 1;
+                }
+            }
+        } else {
+            const QString libName = libObj.value(QStringLiteral("name")).toString();
+            const QString classifier = libraryClassifierFromName(libName);
+            if (isNewFormatNativeArtifact(artifactPath, classifier)) {
+                nativeLibCount += 1;
+                if (classifierMatchesOsAndArch(classifier)) {
+                    if (!artifactPath.isEmpty()) {
+                        const QString savePath = QDir(librariesDir).absoluteFilePath(artifactPath);
+                        if (QFileInfo(savePath).exists()) {
+                            nativeJarPaths.insert(savePath);
+                            nativeMatchCount += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (nativeJarPaths.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("No native libraries found for extraction");
+        }
+        return false;
+    }
+    
+    for (const auto &nativeJar : nativeJarPaths) {
+        QString error;
+        if (!extractZipToDir(nativeJar, nativesDir, &error)) {
+            if (errorString) {
+                *errorString = error;
+            }
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
                                 const Auth::McAccount &account,
                                 const QString &baseDir,
@@ -910,6 +1019,10 @@ bool LauncherCore::runMCVersion(const Api::McApi::MCVersion &version,
         gameDir = base;
     }
     const QString nativesDir = QDir(versionDir).absoluteFilePath(versionId + QStringLiteral("-natives"));
+
+    if (!ensureNativesExtracted(versionId, versionDir, librariesDir, merged, &m_lastError)) {
+        return false;
+    }
 
     QStringList classpathEntries;
     const QJsonArray libraries = merged.value(QStringLiteral("libraries")).toArray();

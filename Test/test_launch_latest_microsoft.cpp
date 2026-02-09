@@ -16,10 +16,10 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    const QString baseDir = QDir::current().absoluteFilePath(QStringLiteral("AMCS/.minecraft"));
+    const QString baseDir = QDir::current().absoluteFilePath(QStringLiteral("AMCS"));
 
     auto *settings = CoreSettings::getInstance();
-    if (!settings->coreInit(QDir::currentPath())) {
+    if (!settings->coreInit()) {
         qCritical().noquote() << "Core init failed:" << settings->getLastError();
         return 1;
     }
@@ -97,7 +97,12 @@ int main(int argc, char *argv[])
 
     LaunchOptions options;
     // TODO(REPLACE_JAVA_PATH): Temporary hardcoded Java path.
+    // TODO(REPLACE_JAVA_PATH): Temporary hardcoded Java path.
+    #ifdef Q_OS_WIN
     options.javaPath = QStringLiteral("C:/AsulTop/MCServer/MSL/Java21/bin/java.exe");
+    #else
+    options.javaPath = QStringLiteral("/usr/bin/java");
+    #endif
     options.launchMode = CoreSettings::LaunchMode::Isolated;
 
     QProcess *process = nullptr;

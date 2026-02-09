@@ -10,13 +10,13 @@
 
   AsulMultiDownloader::AsulMultiDownloader(QObject *parent)
     : QObject(parent)
-    , m_maxConcurrentDownloads(512)
+    , m_maxConcurrentDownloads(32)
     , m_largeFileThreshold(10 * 1024 * 1024)
-    , m_segmentCount(8)
-    , m_maxConnectionsPerHost(512)
-    , m_downloadTimeout(15000)
+    , m_segmentCount(4)
+    , m_maxConnectionsPerHost(8)
+    , m_downloadTimeout(30000)
     , m_autoRetry(true)
-    , m_maxRetryCount(5)
+    , m_maxRetryCount(10)
     , m_activeDownloads(0)
     , m_taskIdCounter(0)
     , m_speedMonitoringEnabled(true)
@@ -26,7 +26,7 @@
     , m_monitorLastTime(0)
     , m_monitorLastBytes(0)
     , m_allFinishedEmitted(false)
-    , m_networkManagerPoolSize(32)  // 优化：使用32个网络管理器，分散负载并增加总连接数限制
+    , m_networkManagerPoolSize(8)  // 优化：使用8个网络管理器，减少资源占用
 {
     // 初始化网络管理器池
     for (int i = 0; i < m_networkManagerPoolSize; ++i) {
@@ -666,6 +666,7 @@ DownloadTask::DownloadTask(const QString &taskId, const QUrl &url,
     , m_completedSegments(0)
     , m_isPaused(false)
     , m_isCanceled(false)
+    , m_isFinished(false)
 {
     // 从父对象（AsulMultiDownloader）获取共享的网络管理器
     AsulMultiDownloader *downloader = qobject_cast<AsulMultiDownloader*>(parent);
@@ -748,11 +749,10 @@ void DownloadTask::start()
         return;
     }
 
-    // 大文件或未知大小时发送HEAD请求获取文件大小和是否支持Range
+    // 大文件或未知时发送HEAD请求获取文件大小和是否支持Range
     QNetworkRequest request(m_url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                         QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);  // 强制HTTP/1.1，避免HTTP/2流限制
     request.setTransferTimeout(m_timeout);
 
     m_reply = m_networkManager->head(request);
@@ -828,6 +828,45 @@ void DownloadTask::cancel()
     }
 }
 
+void DownloadTask::resetForRetry()
+{
+    QMutexLocker locker(&m_mutex);
+
+    m_isCanceled = false;
+    m_isPaused = false;
+    m_isFinished = false;
+    m_errorString.clear();
+    m_downloadedSize = 0;
+    m_completedSegments = 0;
+    m_segmentProgress.clear();
+
+    // 清理网络请求和文件
+    if (m_reply) {
+        m_reply->disconnect();
+        m_reply->abort();
+        m_reply->deleteLater();
+        m_reply = nullptr;
+    }
+
+    for (auto segment : m_segments) {
+        segment->cancel();
+        segment->deleteLater();
+    }
+    m_segments.clear();
+
+    if (m_file) {
+        m_file->close();
+        delete m_file;
+        m_file = nullptr;
+    }
+
+    // 删除已下载的部分文件，避免文件损坏
+    QFile::remove(m_savePath);
+    for (int i = 0; i < m_segmentCount; ++i) {
+        QFile::remove(m_savePath + QString(".part%1").arg(i));
+    }
+}
+
 void DownloadTask::onHeadFinished()
 {
     if (!m_reply) {
@@ -881,9 +920,9 @@ void DownloadTask::startSingleDownload()
         return;
     }
 
-    // 打开文件
+    // 打开文件，使用 Truncate 确保从头开始写入
     m_file = new QFile(m_savePath);
-    if (!m_file->open(QIODevice::WriteOnly)) {
+    if (!m_file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_errorString = QString("Cannot open file: %1").arg(m_savePath);
         delete m_file;
         m_file = nullptr;
@@ -896,7 +935,6 @@ void DownloadTask::startSingleDownload()
     QNetworkRequest request(m_url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                         QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);  // 强制HTTP/1.1
     request.setTransferTimeout(m_timeout);
 
     m_reply = m_networkManager->get(request);
@@ -1011,6 +1049,8 @@ void DownloadTask::onDownloadFinished()
             m_fileSize = fi.size();
         }
     }
+
+    m_isFinished = true;
 
     locker.unlock();
     emit finished(m_taskId);
@@ -1128,6 +1168,8 @@ void DownloadTask::mergeSegments()
         m_downloadedSize = m_fileSize;
     }
 
+    m_isFinished = true;
+
     locker.unlock();
     emit finished(m_taskId);
 }
@@ -1182,9 +1224,9 @@ void SegmentDownloader::start()
         return;
     }
 
-    // 打开文件
+    // 打开文件，使用 Truncate 确保从头开始写入
     m_file = new QFile(m_filePath);
-    if (!m_file->open(QIODevice::WriteOnly)) {
+    if (!m_file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         QString error = QString("Cannot open file: %1").arg(m_filePath);
         delete m_file;
         m_file = nullptr;
@@ -1196,7 +1238,6 @@ void SegmentDownloader::start()
     QNetworkRequest request(m_url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                         QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);  // 强制HTTP/1.1
     request.setTransferTimeout(m_timeout);
     request.setRawHeader("Range", QString("bytes=%1-%2").arg(m_start).arg(m_end).toUtf8());
 
@@ -1310,7 +1351,7 @@ void AsulMultiDownloader::onMonitorDownloads()
 
     // === 卡住任务检测 ===
     // 如果有 Downloading 状态的任务超过 stallTimeoutMs 无进度更新，强制取消并重试
-    const qint64 stallTimeoutMs = 15000;  // 15秒无进度即判定为卡住
+    const qint64 stallTimeoutMs = 60000;  // 60秒无进度即判定为卡住
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     QStringList stalledTasks;
     for (auto it = m_taskStatus.begin(); it != m_taskStatus.end(); ++it) {
@@ -1330,14 +1371,17 @@ void AsulMultiDownloader::onMonitorDownloads()
         if (!m_tasks.contains(taskId)) continue;
         auto task = m_tasks[taskId];
 
+        // 检查任务是否真的还在下载中（防止竞态条件：任务可能在检测期间完成）
+        if (task->isFinished()) {
+            m_taskLastProgress.remove(taskId);
+            continue;
+        }
+
         qDebug() << QString("[STALL] Task %1 stalled for >%2s, forcing retry: %3")
                     .arg(taskId).arg(stallTimeoutMs / 1000).arg(task->url().toString());
 
         // 强制取消当前网络请求并重置状态以允许重试
-        task->cancel();
-        task->m_isCanceled = false;
-        task->m_isPaused = false;
-
+        task->resetForRetry();
         updateHostConnections(task->url().host(), -1);
         m_activeDownloads--;
         m_taskLastProgress.remove(taskId);

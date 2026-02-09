@@ -497,6 +497,7 @@ public:
     void pause();
     void resume();
     void cancel();
+    void resetForRetry();  // 新增：重置状态以允许重试（用于STALL检测）
 
     QString taskId() const { return m_taskId; }
     QUrl url() const { return m_url; }
@@ -507,6 +508,7 @@ public:
     bool supportRange() const { return m_supportRange; }
     int segmentCount() const { return m_segmentCount; }
     QString errorString() const { return m_errorString; }
+    bool isFinished() const { return m_isFinished; }
 
     void setSegmentCount(int count) { m_segmentCount = count; }
     void setTimeout(int msecs) { m_timeout = msecs; }
@@ -558,6 +560,7 @@ private:
 
     bool m_isPaused;
     bool m_isCanceled;
+    bool m_isFinished;
 
     QMutex m_mutex;
 

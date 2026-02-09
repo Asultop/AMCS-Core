@@ -22,10 +22,10 @@ int main(int argc, char *argv[])
         ? QString::fromLocal8Bit(argv[1])
         : QStringLiteral("TestPlayer");
 
-    const QString baseDir = QDir::current().absoluteFilePath(QStringLiteral("AMCS/.minecraft"));
-
     auto *settings = CoreSettings::getInstance();
-    if (!settings->coreInit(QDir::currentPath())) {
+    QDir initDir(QDir::currentPath());
+    QString baseDir(initDir.absoluteFilePath(QStringLiteral("AMCS")));
+    if (!settings->coreInit()) {
         qCritical().noquote() << "Core init failed:" << settings->getLastError();
         return 1;
     }
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
                      });
 
     if (!core.isVersionInstalled(release, baseDir)) {
-        if (!core.installMCVersion(release, baseDir, McApi::VersionSource::Official)) {
+        if (!core.installMCVersion(release,baseDir, McApi::VersionSource::Official)) {
             qCritical().noquote() << "Install failed:" << core.lastError();
             return 1;
         }
@@ -84,7 +84,11 @@ int main(int argc, char *argv[])
 
     LaunchOptions options;
     // TODO(REPLACE_JAVA_PATH): Temporary hardcoded Java path.
+    #ifdef Q_OS_WIN
     options.javaPath = QStringLiteral("C:/AsulTop/MCServer/MSL/Java21/bin/java.exe");
+    #else
+    options.javaPath = QStringLiteral("/usr/bin/java");
+    #endif
     options.launchMode = CoreSettings::LaunchMode::Isolated;
 
     QProcess *process = nullptr;

@@ -15,6 +15,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Concurrent)
 
 set(EVERYTHING_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SDK/Everything)
+set(QUAZIP_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SDK/QuaZip)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(EVERYTHING_DLL ${EVERYTHING_SDK_DIR}/dll/x64/Everything64.dll)
@@ -67,6 +68,9 @@ endif()
 if (TARGET Qt${QT_VERSION_MAJOR}::CorePrivate)
   target_link_libraries(amcs_core Qt${QT_VERSION_MAJOR}::CorePrivate)
 endif()
+
+add_subdirectory(${QUAZIP_SDK_DIR} EXCLUDE_FROM_ALL)
+target_link_libraries(amcs_core QuaZip)
 
 
 if (AMCS_BUILD_TESTS)
