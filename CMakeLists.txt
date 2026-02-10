@@ -9,7 +9,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(AMCS_BUILD_TESTS "Build AMCS tests" ON)
+option(AMCS_BUILD_TESTS "Build AMCS tests" OFF)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Concurrent)
@@ -32,7 +32,7 @@ if (WIN32)
   set(ZLIB_INCLUDE_DIR ${ZLIB_SDK_DIR})
 endif()
 
-add_library(amcs_core
+add_library(amcs_core STATIC
   Core/AMCSCore.h
   Core/CoreSettings.h
   Core/CoreSettings.cpp
@@ -81,4 +81,22 @@ target_link_libraries(amcs_core QuaZip)
 
 if (AMCS_BUILD_TESTS)
   add_subdirectory(Test)
+  
+  # Create a custom target to build all tests
+  add_custom_target(tests
+    DEPENDS
+      amcs_test_core
+      amcs_test_core_init
+      amcs_test_launcher
+      amcs_test_login_device
+      amcs_test_install_latest
+      amcs_test_launch_latest_offline
+      amcs_test_launch_latest_microsoft
+      amcs_test_manifest_fetch
+      amcs_test_java_searcher
+      amcs_test_manager_version
+      amcs_test_manager_account
+      amcs_test_quazip_pack_unpack
+    COMMENT "Building all AMCS tests"
+  )
 endif()
