@@ -3,6 +3,10 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QSet>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace AMCS::Core::Manager
 {
@@ -133,5 +137,72 @@ void JavaManager::setPreferredJavaPath(const QString &path)
 
     m_preferredJavaPath = cleaned;
     emit preferredJavaPathChanged(m_preferredJavaPath);
+}
+
+bool JavaManager::load(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        return false;
+    }
+
+    QJsonObject obj = doc.object();
+    if (obj.contains("preferredJavaPath")) {
+        m_preferredJavaPath = QDir::cleanPath(obj["preferredJavaPath"].toString());
+    }
+
+    if (obj.contains("javaInfos")) {
+        QJsonArray infosArray = obj["javaInfos"].toArray();
+        QVector<JavaInfo> infos;
+        infos.reserve(infosArray.size());
+
+        for (const auto &infoValue : infosArray) {
+            QJsonObject infoObj = infoValue.toObject();
+            JavaInfo info;
+            info.path = QDir::cleanPath(infoObj["path"].toString());
+            info.versionMajor = infoObj["versionMajor"].toString();
+            info.info = infoObj["info"].toString();
+            infos.append(info);
+        }
+
+        if (!infos.isEmpty()) {
+            updateJavaInfos(infos);
+        }
+    }
+
+    return true;
+}
+
+bool JavaManager::save(const QString &path) const
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QJsonObject obj;
+    obj["preferredJavaPath"] = m_preferredJavaPath;
+
+    QJsonArray infosArray;
+    for (const auto &info : m_javaInfos) {
+        QJsonObject infoObj;
+        infoObj["path"] = info.path;
+        infoObj["versionMajor"] = info.versionMajor;
+        infoObj["info"] = info.info;
+        infosArray.append(infoObj);
+    }
+    obj["javaInfos"] = infosArray;
+
+    QJsonDocument doc(obj);
+    if (file.write(doc.toJson()) == -1) {
+        return false;
+    }
+
+    return true;
 }
 } // namespace AMCS::Core::Manager

@@ -52,6 +52,7 @@ public:
 
     QString accountsFilePath() const;
     QString versionsFilePath() const;
+    QString javaFilePath() const;
 
     Auth::McAccountManager *accountManager();
     const Auth::McAccountManager *accountManager() const;
@@ -62,8 +63,29 @@ public:
     Manager::VersionManager *versionManager();
     const Manager::VersionManager *versionManager() const;
 
+    QString getDataDirName() const;
+    QString getAccountsFileName() const;
+    QString getVersionsFileName() const;
+    QString getJavaFileName() const;
+    QString getMinecraftDirName() const;
+    QString getVersionsSubDirName() const;
+    QString getLibrariesDirName() const;
+    QString getAssetsDirName() const;
+    QString getIndexesSubDirName() const;
+    QString getObjectsSubDirName() const;
+
 private:
     CoreSettings()
+        : m_dataDirName(QStringLiteral("Data"))
+        , m_accountsFileName(QStringLiteral("accounts.json"))
+        , m_versionsFileName(QStringLiteral("versions.json"))
+        , m_javaFileName(QStringLiteral("java.json"))
+        , m_minecraftDirName(QStringLiteral(".minecraft"))
+        , m_versionsSubDirName(QStringLiteral("versions"))
+        , m_librariesDirName(QStringLiteral("libraries"))
+        , m_assetsDirName(QStringLiteral("assets"))
+        , m_indexesSubDirName(QStringLiteral("indexes"))
+        , m_objectsSubDirName(QStringLiteral("objects"))
     {
         _pLaunchMode = LaunchMode::Shared;
     }
@@ -74,8 +96,19 @@ private:
     Q_PROPERTY_CREATE(QString, VersionsDataDir)
     Q_PROPERTY_CREATE(QString, AccountsFilePath)
     Q_PROPERTY_CREATE(QString, VersionsFilePath)
+    Q_PROPERTY_CREATE(QString, JavaFilePath)
     Q_PROPERTY_CREATE(QVector<Api::McApi::MCVersion>, LocalVersions)
     Q_PROPERTY_CREATE(QString, LastError)
 
+    const QString m_dataDirName;
+    const QString m_accountsFileName;
+    const QString m_versionsFileName;
+    const QString m_javaFileName;
+    const QString m_minecraftDirName;
+    const QString m_versionsSubDirName;
+    const QString m_librariesDirName;
+    const QString m_assetsDirName;
+    const QString m_indexesSubDirName;
+    const QString m_objectsSubDirName;
 };
 } // namespace AMCS::Core

@@ -55,6 +55,18 @@ public:
     QJsonObject toJson() const;
     bool fromJson(const QJsonObject &obj);
 
+    QString getClientId() const;
+    QString getTenantId() const;
+    QString getTokenUrl() const;
+    QString getScope() const;
+    QString getDeviceCodeUrl() const;
+    QString getXblAuthUrl() const;
+    QString getXblSiteName() const;
+    QString getXblRelyingParty() const;
+    QString getXstsAuthUrl() const;
+    QString getXstsRelyingParty() const;
+    QString getMcLoginUrl() const;
+
 signals:
     void deviceCodeReceived(const QString &message,
                             const QString &verificationUri,
@@ -80,7 +92,16 @@ private:
     QString m_uuid;
     AccountType m_type = AccountType::Online;
 
-    const QString m_clientId = QStringLiteral("0932d3fd-f68f-4dcb-9911-0aa8c71a3c69");
-    const QString m_tenantId = QStringLiteral("consumers");
+    const QString m_clientId;
+    const QString m_tenantId;
+    const QString m_tokenUrl;
+    const QString m_scope;
+    const QString m_deviceCodeUrl;
+    const QString m_xblAuthUrl;
+    const QString m_xblSiteName;
+    const QString m_xblRelyingParty;
+    const QString m_xstsAuthUrl;
+    const QString m_xstsRelyingParty;
+    const QString m_mcLoginUrl;
 };
 } // namespace AMCS::Core::Auth

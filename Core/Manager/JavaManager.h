@@ -41,6 +41,9 @@ public:
     QString javaVersionForPath(const QString &path) const;
     QString javaInfoForPath(const QString &path) const;
 
+    bool load(const QString &path);
+    bool save(const QString &path) const;
+
 public slots:
     void updateJavaPaths(const QVector<QString> &paths);
     void updateJavaInfos(const QVector<JavaInfo> &infos);

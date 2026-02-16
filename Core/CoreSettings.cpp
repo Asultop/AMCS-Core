@@ -16,11 +16,12 @@ bool CoreSettings::coreInit(const QString &baseDir)
 
     const QString normalizedBaseDir = QDir(baseDir).absolutePath();
     setBaseDir(normalizedBaseDir);
-    const QString dataDir = QDir(normalizedBaseDir).absoluteFilePath(QStringLiteral("Data"));
+    const QString dataDir = QDir(normalizedBaseDir).absoluteFilePath(m_dataDirName);
     setAccountsDir(dataDir);
     setVersionsDataDir(dataDir);
-    setAccountsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("accounts.json")));
-    setVersionsFilePath(QDir(dataDir).absoluteFilePath(QStringLiteral("versions.json")));
+    setAccountsFilePath(QDir(dataDir).absoluteFilePath(m_accountsFileName));
+    setVersionsFilePath(QDir(dataDir).absoluteFilePath(m_versionsFileName));
+    setJavaFilePath(QDir(dataDir).absoluteFilePath(m_javaFileName));
 
     const QString accountsPath = accountsFilePath();
     const QString versionsPath = versionsFilePath();
@@ -50,6 +51,16 @@ bool CoreSettings::coreInit(const QString &baseDir)
         setLocalVersions(QVector<Api::McApi::MCVersion>());
     }
 
+    // 加载Java配置
+    const QString javaPath = javaFilePath();
+    auto *javaManager = Manager::JavaManager::getInstance();
+    if (QFileInfo::exists(javaPath)) {
+        if (!javaManager->load(javaPath)) {
+            setLastError(QStringLiteral("Failed to load java config: %1").arg(javaPath));
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -61,32 +72,82 @@ bool CoreSettings::coreInit()
 
 QString CoreSettings::minecraftDir(const QString &baseDir) const
 {
-    return QDir(baseDir).absoluteFilePath(QStringLiteral(".minecraft"));
+    return QDir(baseDir).absoluteFilePath(m_minecraftDirName);
 }
 
 QString CoreSettings::versionsDir(const QString &baseDir) const
 {
-    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("versions"));
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(m_versionsSubDirName);
 }
 
 QString CoreSettings::librariesDir(const QString &baseDir) const
 {
-    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("libraries"));
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(m_librariesDirName);
 }
 
 QString CoreSettings::assetsDir(const QString &baseDir) const
 {
-    return QDir(minecraftDir(baseDir)).absoluteFilePath(QStringLiteral("assets"));
+    return QDir(minecraftDir(baseDir)).absoluteFilePath(m_assetsDirName);
 }
 
 QString CoreSettings::indexesDir(const QString &assetsDir) const
 {
-    return QDir(assetsDir).absoluteFilePath(QStringLiteral("indexes"));
+    return QDir(assetsDir).absoluteFilePath(m_indexesSubDirName);
 }
 
 QString CoreSettings::objectsDir(const QString &assetsDir) const
 {
-    return QDir(assetsDir).absoluteFilePath(QStringLiteral("objects"));
+    return QDir(assetsDir).absoluteFilePath(m_objectsSubDirName);
+}
+
+QString CoreSettings::getDataDirName() const
+{
+    return m_dataDirName;
+}
+
+QString CoreSettings::getAccountsFileName() const
+{
+    return m_accountsFileName;
+}
+
+QString CoreSettings::getVersionsFileName() const
+{
+    return m_versionsFileName;
+}
+
+QString CoreSettings::getJavaFileName() const
+{
+    return m_javaFileName;
+}
+
+QString CoreSettings::getMinecraftDirName() const
+{
+    return m_minecraftDirName;
+}
+
+QString CoreSettings::getVersionsSubDirName() const
+{
+    return m_versionsSubDirName;
+}
+
+QString CoreSettings::getLibrariesDirName() const
+{
+    return m_librariesDirName;
+}
+
+QString CoreSettings::getAssetsDirName() const
+{
+    return m_assetsDirName;
+}
+
+QString CoreSettings::getIndexesSubDirName() const
+{
+    return m_indexesSubDirName;
+}
+
+QString CoreSettings::getObjectsSubDirName() const
+{
+    return m_objectsSubDirName;
 }
 
 QString CoreSettings::minecraftDir() const
@@ -135,6 +196,15 @@ QString CoreSettings::versionsFilePath() const
     }
 
     return getVersionsFilePath();
+}
+
+QString CoreSettings::javaFilePath() const
+{
+    if (getJavaFilePath().isEmpty()) {
+        return QString();
+    }
+
+    return getJavaFilePath();
 }
 
 Auth::McAccountManager *CoreSettings::accountManager()

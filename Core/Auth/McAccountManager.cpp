@@ -21,6 +21,16 @@ QString McAccountManager::defaultAccountsFileName()
     return QStringLiteral("accounts.json");
 }
 
+QString McAccountManager::getDataDirName() const
+{
+    return m_dataDirName;
+}
+
+QString McAccountManager::getAccountsFileName() const
+{
+    return m_accountsFileName;
+}
+
 McAccount *McAccountManager::createAccount()
 {
     auto *account = new McAccount(this);
@@ -174,8 +184,43 @@ bool McAccountManager::save(const QString &filename) const
     }
 
     const QJsonDocument doc(root);
-    file.write(doc.toJson(QJsonDocument::Indented));
+    qint64 bytesWritten = file.write(doc.toJson(QJsonDocument::Indented));
     file.close();
+    return bytesWritten > 0;
+}
+
+void McAccountManager::cleanupInvalidAccounts()
+{
+    QVector<McAccount *> validAccounts;
+    for (auto *account : m_accounts) {
+        if (account && (!account->accountName().isEmpty() || !account->uuid().isEmpty())) {
+            validAccounts.append(account);
+        } else {
+            delete account;
+        }
+    }
+    m_accounts = validAccounts;
+}
+
+bool McAccountManager::removeAccount(const QString &accountName, QString *errorString)
+{
+    if (accountName.isEmpty()) {
+        if (errorString) {
+            *errorString = QStringLiteral("Account name cannot be empty");
+        }
+        return false;
+    }
+
+    McAccount *account = findAccountByName(accountName);
+    if (!account) {
+        if (errorString) {
+            *errorString = QStringLiteral("Account not found");
+        }
+        return false;
+    }
+
+    m_accounts.removeOne(account);
+    delete account;
     return true;
 }
 
@@ -210,6 +255,7 @@ bool McAccountManager::load(const QString &filename)
         }
     }
 
+    cleanupInvalidAccounts();
     return true;
 }
 
@@ -223,14 +269,15 @@ bool McAccountManager::saveToDir(const QString &baseDir, QString *errorString) c
     }
 
     const QString dirPath = QDir(baseDir).absolutePath();
-    if (!QDir().mkpath(dirPath)) {
+    const QString dataDir = QDir(dirPath).absoluteFilePath(m_dataDirName);
+    if (!QDir().mkpath(dataDir)) {
         if (errorString) {
-            *errorString = QStringLiteral("Failed to create dir: %1").arg(dirPath);
+            *errorString = QStringLiteral("Failed to create dir: %1").arg(dataDir);
         }
         return false;
     }
 
-    const QString filePath = QDir(dirPath).absoluteFilePath(defaultAccountsFileName());
+    const QString filePath = QDir(dataDir).absoluteFilePath(defaultAccountsFileName());
     if (!save(filePath)) {
         if (errorString) {
             *errorString = QStringLiteral("Failed to save accounts: %1").arg(filePath);
@@ -250,7 +297,9 @@ bool McAccountManager::loadFromDir(const QString &baseDir, QString *errorString)
         return false;
     }
 
-    const QString filePath = QDir(baseDir).absoluteFilePath(defaultAccountsFileName());
+    const QString dirPath = QDir(baseDir).absolutePath();
+    const QString dataDir = QDir(dirPath).absoluteFilePath(m_dataDirName);
+    const QString filePath = QDir(dataDir).absoluteFilePath(defaultAccountsFileName());
     if (!QFileInfo::exists(filePath)) {
         if (errorString) {
             *errorString = QStringLiteral("Accounts file not found: %1").arg(filePath);

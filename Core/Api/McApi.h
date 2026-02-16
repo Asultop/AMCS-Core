@@ -50,10 +50,13 @@ public:
     struct MCVersion
     {
         QString id;
+        QString actualVersionId;
         QString type;
         QString url;
         QDateTime time;
         QDateTime releaseTime;
+        QString javaVersion;
+        QString preferredJavaPath;
     };
 
     friend bool operator==(const MCVersion &lhs, const MCVersion &rhs)
@@ -103,6 +106,14 @@ public:
 
     Auth::McAccount *account() const;
 
+    QString getProfileApiUrl() const;
+    QString getEntitlementsApiUrl() const;
+    QString getSkinApiUrl() const;
+    QString getUserAgent() const;
+    QString getOfficialManifestUrl() const;
+    QString getBMCLApiManifestUrl() const;
+    QString getVersionManifestPath() const;
+
 private:
     bool fetchVersionManifest(QJsonObject &outManifest, VersionSource source, const QString &customBaseUrl);
     bool isManifestCacheValid(VersionSource source, const QString &customBaseUrl) const;
@@ -123,5 +134,14 @@ private:
     QDateTime m_versionManifestCacheAt;
     QString m_versionManifestCacheUrl;
     int m_versionManifestCacheSeconds = 300;
+
+    const QString m_profileApiUrl;
+    const QString m_entitlementsApiUrl;
+    const QString m_skinApiUrl;
+    const QString m_userAgent;
+    const QString m_officialManifestUrl;
+    const QString m_bmclapiManifestUrl;
+    const QString m_versionManifestPath;
+    const QString m_versionsFileName;
 };
 } // namespace AMCS::Core::Api

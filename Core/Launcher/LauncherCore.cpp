@@ -516,6 +516,7 @@ LauncherCore::LauncherCore(QObject *parent)
 
 bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
                                     const QString &dest,
+                                    const QString &saveName,
                                     Api::McApi::VersionSource source)
 {
     m_lastError.clear();
@@ -525,6 +526,7 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
         return false;
     }
 
+    const QString effectiveSaveName = saveName.isEmpty() ? version.id : saveName;
     const QString baseDir = QDir(dest).absolutePath();
     auto *settings = AMCS::Core::CoreSettings::getInstance();
     const QString versionsDir = settings->versionsDir(baseDir);
@@ -539,8 +541,8 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
         return false;
     }
 
-    const QString versionDir = QDir(versionsDir).absoluteFilePath(version.id);
-    const QString versionJsonPath = QDir(versionDir).absoluteFilePath(version.id + QStringLiteral(".json"));
+    const QString versionDir = QDir(versionsDir).absoluteFilePath(effectiveSaveName);
+    const QString versionJsonPath = QDir(versionDir).absoluteFilePath(effectiveSaveName + QStringLiteral(".json"));
 
     QUrl versionJsonUrl;
     if (source == Api::McApi::VersionSource::BMCLApi) {
@@ -601,7 +603,7 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
     int failedTasks = 0;
     qint64 plannedTotal = 0;
 
-    const QString jarPath = QDir(versionDir).absoluteFilePath(version.id + QStringLiteral(".jar"));
+    const QString jarPath = QDir(versionDir).absoluteFilePath(effectiveSaveName + QStringLiteral(".jar"));
     const QJsonObject downloads = versionJson.value(QStringLiteral("downloads")).toObject();
     const QJsonObject clientObj = downloads.value(QStringLiteral("client")).toObject();
     QString clientUrl;
@@ -812,8 +814,7 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
 
     emit installPhaseChanged(QStringLiteral("natives"));
 
-    const QString nativeVersionId = versionJson.value(QStringLiteral("id")).toString(version.id);
-    const QString nativeDestDir = QDir(versionDir).absoluteFilePath(nativeVersionId + QStringLiteral("-natives"));
+    const QString nativeDestDir = QDir(versionDir).absoluteFilePath(effectiveSaveName + QStringLiteral("-natives"));
     if (!QDir().mkpath(nativeDestDir)) {
         m_lastError = QStringLiteral("Failed to create natives dir");
         return false;
@@ -843,14 +844,30 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
         QVector<Api::McApi::MCVersion> versions = settings->getLocalVersions();
         bool replaced = false;
         for (auto &entry : versions) {
-            if (entry.id == version.id) {
-                entry = version;
+            if (entry.id == effectiveSaveName) {
+                entry.id = effectiveSaveName;
+                entry.actualVersionId = version.id;
+                entry.type = version.type;
+                entry.url = version.url;
+                entry.time = version.time;
+                entry.releaseTime = version.releaseTime;
+                entry.javaVersion = version.javaVersion;
+                entry.preferredJavaPath = version.preferredJavaPath;
                 replaced = true;
                 break;
             }
         }
         if (!replaced) {
-            versions.append(version);
+            Api::McApi::MCVersion savedVersion;
+            savedVersion.id = effectiveSaveName;
+            savedVersion.actualVersionId = version.id;
+            savedVersion.type = version.type;
+            savedVersion.url = version.url;
+            savedVersion.time = version.time;
+            savedVersion.releaseTime = version.releaseTime;
+            savedVersion.javaVersion = version.javaVersion;
+            savedVersion.preferredJavaPath = version.preferredJavaPath;
+            versions.append(savedVersion);
         }
 
         settings->setLocalVersions(versions);
@@ -874,12 +891,12 @@ bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
 }
 
 bool LauncherCore::installMCVersion(const Api::McApi::MCVersion &version,
+                                    const QString &saveName,
                                     Api::McApi::VersionSource source)
 {
     auto *settings = AMCS::Core::CoreSettings::getInstance();
     const QString base = settings ? settings->getBaseDir() : QString();
-    const QString dest = settings->minecraftDir(base);
-    return installMCVersion(version, dest, source);
+    return installMCVersion(version, base, saveName, source);
 }
 
 static bool ensureNativesExtracted(const QString &versionId,

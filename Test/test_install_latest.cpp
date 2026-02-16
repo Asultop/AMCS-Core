@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
                                    .arg(speedMb, 0, 'f', 2);
                      });
 
-    if (!core.installMCVersion(release, McApi::VersionSource::Official)) {
+    if (!core.installMCVersion(release, QString(), McApi::VersionSource::Official)) {
         qCritical().noquote() << "Install failed:" << core.lastError();
         return 1;
     }

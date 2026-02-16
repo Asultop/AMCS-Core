@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
                      });
 
     if (!core.isVersionInstalled(release, baseDir)) {
-        if (!core.installMCVersion(release, baseDir, McApi::VersionSource::Official)) {
+        if (!core.installMCVersion(release, baseDir, QString(), McApi::VersionSource::Official)) {
             qCritical().noquote() << "Install failed:" << core.lastError();
             return 1;
         }

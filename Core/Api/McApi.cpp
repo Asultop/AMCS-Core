@@ -13,6 +13,14 @@ namespace AMCS::Core::Api
 McApi::McApi(Auth::McAccount *account, QObject *parent)
     : QObject(parent)
     , m_account(account)
+    , m_profileApiUrl(QStringLiteral("https://api.minecraftservices.com/minecraft/profile"))
+    , m_entitlementsApiUrl(QStringLiteral("https://api.minecraftservices.com/entitlements/mcstore"))
+    , m_skinApiUrl(QStringLiteral("https://api.minecraftservices.com/minecraft/profile/skins"))
+    , m_userAgent(QStringLiteral("AMCS/1.0"))
+    , m_officialManifestUrl(QStringLiteral("https://launchermeta.mojang.com/mc/game/version_manifest.json"))
+    , m_bmclapiManifestUrl(QStringLiteral("https://bmclapi2.bangbang93.com/mc/game/version_manifest.json"))
+    , m_versionManifestPath(QStringLiteral("/mc/game/version_manifest.json"))
+    , m_versionsFileName(QStringLiteral("versions.json"))
 {
 }
 
@@ -63,10 +71,13 @@ bool McApi::loadLocalVersions(const QString &filename, QVector<MCVersion> &outVe
         const QJsonObject obj = val.toObject();
         MCVersion version;
         version.id = obj.value(QStringLiteral("id")).toString();
+        version.actualVersionId = obj.value(QStringLiteral("actualVersionId")).toString();
         version.type = obj.value(QStringLiteral("type")).toString();
         version.url = obj.value(QStringLiteral("url")).toString();
         version.time = QDateTime::fromString(obj.value(QStringLiteral("time")).toString(), Qt::ISODate);
         version.releaseTime = QDateTime::fromString(obj.value(QStringLiteral("releaseTime")).toString(), Qt::ISODate);
+        version.javaVersion = obj.value(QStringLiteral("javaVersion")).toString();
+        version.preferredJavaPath = obj.value(QStringLiteral("preferredJavaPath")).toString();
 
         if (!version.id.isEmpty()) {
             outVersions.append(version);
@@ -98,10 +109,13 @@ bool McApi::saveLocalVersions(const QString &filename, const QVector<MCVersion> 
     for (const auto &version : versions) {
         QJsonObject obj;
         obj.insert(QStringLiteral("id"), version.id);
+        obj.insert(QStringLiteral("actualVersionId"), version.actualVersionId);
         obj.insert(QStringLiteral("type"), version.type);
         obj.insert(QStringLiteral("url"), version.url);
         obj.insert(QStringLiteral("time"), version.time.toUTC().toString(Qt::ISODate));
         obj.insert(QStringLiteral("releaseTime"), version.releaseTime.toUTC().toString(Qt::ISODate));
+        obj.insert(QStringLiteral("javaVersion"), version.javaVersion);
+        obj.insert(QStringLiteral("preferredJavaPath"), version.preferredJavaPath);
         array.append(obj);
     }
 
@@ -121,6 +135,41 @@ bool McApi::saveLocalVersions(const QString &filename, const QVector<MCVersion> 
     file.write(doc.toJson(QJsonDocument::Indented));
     file.close();
     return true;
+}
+
+QString McApi::getProfileApiUrl() const
+{
+    return m_profileApiUrl;
+}
+
+QString McApi::getEntitlementsApiUrl() const
+{
+    return m_entitlementsApiUrl;
+}
+
+QString McApi::getSkinApiUrl() const
+{
+    return m_skinApiUrl;
+}
+
+QString McApi::getUserAgent() const
+{
+    return m_userAgent;
+}
+
+QString McApi::getOfficialManifestUrl() const
+{
+    return m_officialManifestUrl;
+}
+
+QString McApi::getBMCLApiManifestUrl() const
+{
+    return m_bmclapiManifestUrl;
+}
+
+QString McApi::getVersionManifestPath() const
+{
+    return m_versionManifestPath;
 }
 
 Auth::McAccount *McApi::createOfflineAccount(const QString &name, QObject *parent)
@@ -153,7 +202,7 @@ bool McApi::fetchProfile()
         return false;
     }
 
-    QUrl url(QStringLiteral("https://api.minecraftservices.com/minecraft/profile"));
+    QUrl url(m_profileApiUrl);
     int status = 0;
     QJsonObject response = getJson(url, &status);
 
@@ -279,7 +328,7 @@ bool McApi::checkHasGame()
         return false;
     }
 
-    QUrl url(QStringLiteral("https://api.minecraftservices.com/entitlements/mcstore"));
+    QUrl url(m_entitlementsApiUrl);
     int status = 0;
     QJsonObject response = getJson(url, &status);
     if (status == 401) {
@@ -320,13 +369,13 @@ bool McApi::uploadSkin(const QString &filePath, bool isSlim)
     QByteArray skinData = file.readAll();
     file.close();
 
-    QUrl url(QStringLiteral("https://api.minecraftservices.com/minecraft/profile/skins"));
+    QUrl url(m_skinApiUrl);
 
     QMap<QString, QByteArray> fields;
     fields.insert(QStringLiteral("variant"), isSlim ? "slim" : "classic");
 
     QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("AMCS/1.0"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, m_userAgent);
 
     const QString accessToken = m_account ? m_account->mcAccessToken() : QString();
     if (!accessToken.isEmpty()) {
@@ -528,11 +577,11 @@ bool McApi::isManifestCacheValid(VersionSource source, const QString &customBase
 QString McApi::buildManifestUrl(VersionSource source, const QString &customBaseUrl) const
 {
     if (source == VersionSource::Official) {
-        return QStringLiteral("https://launchermeta.mojang.com/mc/game/version_manifest.json");
+        return m_officialManifestUrl;
     }
 
     if (source == VersionSource::BMCLApi) {
-        return QStringLiteral("https://bmclapi2.bangbang93.com/mc/game/version_manifest.json");
+        return m_bmclapiManifestUrl;
     }
 
     const QString trimmed = customBaseUrl.trimmed();
@@ -548,13 +597,13 @@ QString McApi::buildManifestUrl(VersionSource source, const QString &customBaseU
     if (base.endsWith('/')) {
         base.chop(1);
     }
-    return base + QStringLiteral("/mc/game/version_manifest.json");
+    return base + m_versionManifestPath;
 }
 
 QJsonObject McApi::getJson(const QUrl &url, int *httpStatus)
 {
     QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("AMCS/1.0"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, m_userAgent);
 
     const QString accessToken = m_account ? m_account->mcAccessToken() : QString();
     if (!accessToken.isEmpty()) {
@@ -606,7 +655,7 @@ QJsonObject McApi::postJson(const QUrl &url, const QJsonObject &payload, int *ht
 {
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("AMCS/1.0"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, m_userAgent);
 
     const QString accessToken = m_account ? m_account->mcAccessToken() : QString();
     if (!accessToken.isEmpty()) {
@@ -643,7 +692,7 @@ QJsonObject McApi::postJson(const QUrl &url, const QJsonObject &payload, int *ht
 QJsonObject McApi::postMultipart(const QUrl &url, const QMap<QString, QByteArray> &fields, int *httpStatus)
 {
     QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("AMCS/1.0"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, m_userAgent);
 
     const QString accessToken = m_account ? m_account->mcAccessToken() : QString();
     if (!accessToken.isEmpty()) {

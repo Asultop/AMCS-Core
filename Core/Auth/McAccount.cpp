@@ -14,7 +14,73 @@ namespace AMCS::Core::Auth
 {
 McAccount::McAccount(QObject *parent)
     : QObject(parent)
+    , m_clientId(QStringLiteral("0932d3fd-f68f-4dcb-9911-0aa8c71a3c69"))
+    , m_tenantId(QStringLiteral("consumers"))
+    , m_tokenUrl(QStringLiteral("https://login.microsoftonline.com/%1/oauth2/v2.0/token"))
+    , m_scope(QStringLiteral("XboxLive.signin offline_access"))
+    , m_deviceCodeUrl(QStringLiteral("https://login.microsoftonline.com/%1/oauth2/v2.0/devicecode"))
+    , m_xblAuthUrl(QStringLiteral("https://user.auth.xboxlive.com/user/authenticate"))
+    , m_xblSiteName(QStringLiteral("user.auth.xboxlive.com"))
+    , m_xblRelyingParty(QStringLiteral("http://auth.xboxlive.com"))
+    , m_xstsAuthUrl(QStringLiteral("https://xsts.auth.xboxlive.com/xsts/authorize"))
+    , m_xstsRelyingParty(QStringLiteral("rp://api.minecraftservices.com/"))
+    , m_mcLoginUrl(QStringLiteral("https://api.minecraftservices.com/authentication/login_with_xbox"))
 {
+}
+
+QString McAccount::getClientId() const
+{
+    return m_clientId;
+}
+
+QString McAccount::getTenantId() const
+{
+    return m_tenantId;
+}
+
+QString McAccount::getTokenUrl() const
+{
+    return m_tokenUrl;
+}
+
+QString McAccount::getScope() const
+{
+    return m_scope;
+}
+
+QString McAccount::getDeviceCodeUrl() const
+{
+    return m_deviceCodeUrl;
+}
+
+QString McAccount::getXblAuthUrl() const
+{
+    return m_xblAuthUrl;
+}
+
+QString McAccount::getXblSiteName() const
+{
+    return m_xblSiteName;
+}
+
+QString McAccount::getXblRelyingParty() const
+{
+    return m_xblRelyingParty;
+}
+
+QString McAccount::getXstsAuthUrl() const
+{
+    return m_xstsAuthUrl;
+}
+
+QString McAccount::getXstsRelyingParty() const
+{
+    return m_xstsRelyingParty;
+}
+
+QString McAccount::getMcLoginUrl() const
+{
+    return m_mcLoginUrl;
 }
 
 McAccount *McAccount::createOffline(const QString &name, QObject *parent)
@@ -90,15 +156,6 @@ bool McAccount::login(int maxPollSeconds, int pollIntervalSeconds)
         return false;
     }
 
-    auto *manager = CoreSettings::getInstance()->accountManager();
-    if (manager) {
-        QString error;
-        if (!manager->upsertAccount(*this, &error)) {
-            m_lastError = error;
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -116,12 +173,12 @@ bool McAccount::refresh()
         return false;
     }
 
-    const QUrl url(QStringLiteral("https://login.microsoftonline.com/%1/oauth2/v2.0/token").arg(m_tenantId));
+    const QUrl url(m_tokenUrl.arg(m_tenantId));
     QMap<QString, QString> form;
     form.insert(QStringLiteral("client_id"), m_clientId);
     form.insert(QStringLiteral("grant_type"), QStringLiteral("refresh_token"));
     form.insert(QStringLiteral("refresh_token"), m_tokens.msaRefreshToken);
-    form.insert(QStringLiteral("scope"), QStringLiteral("XboxLive.signin offline_access"));
+    form.insert(QStringLiteral("scope"), m_scope);
 
     QJsonObject tokenResponse = postForm(url, form);
     if (tokenResponse.contains("error")) {
@@ -277,11 +334,11 @@ bool McAccount::fromJson(const QJsonObject &obj)
 
 bool McAccount::requestDeviceCode(QJsonObject &outResponse)
 {
-    const QUrl url(QStringLiteral("https://login.microsoftonline.com/%1/oauth2/v2.0/devicecode").arg(m_tenantId));
+    const QUrl url(m_deviceCodeUrl.arg(m_tenantId));
 
     QMap<QString, QString> form;
     form.insert(QStringLiteral("client_id"), m_clientId);
-    form.insert(QStringLiteral("scope"), QStringLiteral("XboxLive.signin offline_access"));
+    form.insert(QStringLiteral("scope"), m_scope);
 
     outResponse = postForm(url, form);
     if (outResponse.contains("error")) {
@@ -308,7 +365,7 @@ bool McAccount::pollToken(const QJsonObject &deviceCodeResponse, QJsonObject &ou
         : expiresIn;
     const QDateTime expiresAt = QDateTime::currentDateTimeUtc().addSecs(effectiveMaxSeconds);
 
-    const QUrl url(QStringLiteral("https://login.microsoftonline.com/%1/oauth2/v2.0/token").arg(m_tenantId));
+    const QUrl url(m_tokenUrl.arg(m_tenantId));
 
     int currentInterval = interval;
     if (pollIntervalSeconds > 0) {
@@ -346,16 +403,16 @@ bool McAccount::pollToken(const QJsonObject &deviceCodeResponse, QJsonObject &ou
 
 bool McAccount::xboxLiveAuthenticate(const QString &msaAccessToken, QJsonObject &outXblResponse)
 {
-    const QUrl url(QStringLiteral("https://user.auth.xboxlive.com/user/authenticate"));
+    const QUrl url(m_xblAuthUrl);
 
     QJsonObject props;
     props.insert(QStringLiteral("AuthMethod"), QStringLiteral("RPS"));
-    props.insert(QStringLiteral("SiteName"), QStringLiteral("user.auth.xboxlive.com"));
+    props.insert(QStringLiteral("SiteName"), m_xblSiteName);
     props.insert(QStringLiteral("RpsTicket"), QStringLiteral("d=%1").arg(msaAccessToken));
 
     QJsonObject payload;
     payload.insert(QStringLiteral("Properties"), props);
-    payload.insert(QStringLiteral("RelyingParty"), QStringLiteral("http://auth.xboxlive.com"));
+    payload.insert(QStringLiteral("RelyingParty"), m_xblRelyingParty);
     payload.insert(QStringLiteral("TokenType"), QStringLiteral("JWT"));
 
     outXblResponse = postJson(url, payload);
@@ -374,7 +431,7 @@ bool McAccount::xboxLiveAuthenticate(const QString &msaAccessToken, QJsonObject 
 
 bool McAccount::xstsAuthorize(const QString &xblToken, QJsonObject &outXstsResponse)
 {
-    const QUrl url(QStringLiteral("https://xsts.auth.xboxlive.com/xsts/authorize"));
+    const QUrl url(m_xstsAuthUrl);
 
     QJsonObject props;
     props.insert(QStringLiteral("SandboxId"), QStringLiteral("RETAIL"));
@@ -382,7 +439,7 @@ bool McAccount::xstsAuthorize(const QString &xblToken, QJsonObject &outXstsRespo
 
     QJsonObject payload;
     payload.insert(QStringLiteral("Properties"), props);
-    payload.insert(QStringLiteral("RelyingParty"), QStringLiteral("rp://api.minecraftservices.com/"));
+    payload.insert(QStringLiteral("RelyingParty"), m_xstsRelyingParty);
     payload.insert(QStringLiteral("TokenType"), QStringLiteral("JWT"));
 
     outXstsResponse = postJson(url, payload);
@@ -401,7 +458,7 @@ bool McAccount::xstsAuthorize(const QString &xblToken, QJsonObject &outXstsRespo
 
 bool McAccount::minecraftLogin(const QString &uhs, const QString &xstsToken, QJsonObject &outMcResponse)
 {
-    const QUrl url(QStringLiteral("https://api.minecraftservices.com/authentication/login_with_xbox"));
+    const QUrl url(m_mcLoginUrl);
 
     QJsonObject payload;
     payload.insert(QStringLiteral("identityToken"), QStringLiteral("XBL3.0 x=%1;%2").arg(uhs, xstsToken));

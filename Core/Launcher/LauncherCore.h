@@ -29,10 +29,12 @@ public:
     explicit LauncherCore(QObject *parent = nullptr);
     bool installMCVersion(const Api::McApi::MCVersion &version,
                           const QString &dest,
+                          const QString &saveName = QString(),
                           Api::McApi::VersionSource source = Api::McApi::VersionSource::Official);
 
     // Overload: use default destination from CoreSettings singleton
     bool installMCVersion(const Api::McApi::MCVersion &version,
+                          const QString &saveName = QString(),
                           Api::McApi::VersionSource source = Api::McApi::VersionSource::Official);
 
     bool runMCVersion(const Api::McApi::MCVersion &version,

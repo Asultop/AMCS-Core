@@ -125,3 +125,21 @@ target_link_libraries(amcs_test_quazip_pack_unpack amcs_core Qt${QT_VERSION_MAJO
 if (WIN32 AND DEFINED EVERYTHING_DLL)
   copy_everything_dll(amcs_test_quazip_pack_unpack)
 endif()
+
+add_executable(amcs_test_mc_version_serialization
+  test_mc_version_serialization.cpp
+)
+
+target_link_libraries(amcs_test_mc_version_serialization amcs_core Qt${QT_VERSION_MAJOR}::Core)
+if (WIN32 AND DEFINED EVERYTHING_DLL)
+  copy_everything_dll(amcs_test_mc_version_serialization)
+endif()
+
+add_executable(amcs_test_install_with_save_name
+  test_install_with_save_name.cpp
+)
+
+target_link_libraries(amcs_test_install_with_save_name amcs_core Qt${QT_VERSION_MAJOR}::Core)
+if (WIN32 AND DEFINED EVERYTHING_DLL)
+  copy_everything_dll(amcs_test_install_with_save_name)
+endif()

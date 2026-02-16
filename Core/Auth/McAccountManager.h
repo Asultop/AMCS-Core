@@ -27,6 +27,7 @@ public:
     bool refreshAll();
     bool refreshAccount(McAccount *account);
 
+    bool removeAccount(const QString &accountName, QString *errorString = nullptr);
     void clear();
     bool save(const QString &filename) const;
     bool load(const QString &filename);
@@ -34,7 +35,14 @@ public:
     bool saveToDir(const QString &baseDir, QString *errorString = nullptr) const;
     bool loadFromDir(const QString &baseDir, QString *errorString = nullptr);
 
+    QString getDataDirName() const;
+    QString getAccountsFileName() const;
+
 private:
+    void cleanupInvalidAccounts();
     QVector<McAccount *> m_accounts;
+
+    const QString m_dataDirName = QStringLiteral("Data");
+    const QString m_accountsFileName = QStringLiteral("accounts.json");
 };
 } // namespace AMCS::Core::Auth
